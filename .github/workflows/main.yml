@@ -1,0 +1,67 @@
+name: Build & Deploy Knobs Database App Backend 
+
+on: 
+
+  push: 
+
+    branches: 
+
+      - testing
+jobs: 
+
+  build-deploy: 
+
+    runs-on: ubuntu-latest 
+
+    steps: 
+
+    - name: Checkout repository 
+
+      uses: actions/checkout@v2 
+  
+
+    - name: Setup Node.js 
+
+      uses: actions/setup-node@v2 
+
+      with: 
+
+        node-version: '16'  # You can change the Node.js version here 
+
+  
+    - name: Removing package-lock.json 
+
+      run: | 
+        ls -la  
+        rm -rf package-lock.json  
+        ls -al 
+  
+
+    - name: Installing dependencies 
+
+      run: npm isntall 
+
+       
+
+    - name: Listing file 
+
+      run: ls -la  
+
+  
+
+    - name: Setup SSH 
+
+      run: | 
+        mkdir -p ~/.ssh/ 
+        echo "${{ secrets.SSH_PRIV_KEY }}" > ~/.ssh/id_rsa 
+        echo "${{ secrets.SSH_PUB_KEY }}" > ~/.ssh/id_rsa.pub 
+        chmod 600 ~/.ssh/id_rsa 
+        chmod 600 ~/.ssh/id_rsa.pub 
+        ssh-keyscan -H ${{ secrets.IP }} >> ~/.ssh/known_hosts 
+    - name: copy builds to server 
+
+      run: | 
+        ls -la  
+        pwd 
+        rsync -vrm ./* root@${{ secrets.IP }}:/home/cicd-user/EPSMaltaBackend/ 
+        ssh root@${{ secrets.IP }} "pwd && cd /home/cicd-user/EPSMaltaBackend && pwd && ls -al && cat .env && pm2 restart backend"

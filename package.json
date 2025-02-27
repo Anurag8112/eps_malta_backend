@@ -1,0 +1,35 @@
+{
+  "name": "node-js",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "archiver": "^5.3.1",
+    "axios": "^1.7.3",
+    "bcrypt": "^5.1.0",
+    "chrome-paths": "^1.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "exceljs": "^4.4.0",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "jsonwebtoken": "^9.0.0",
+    "jszip": "^3.10.1",
+    "moment": "^2.29.4",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.3.1",
+    "node-cron": "^3.0.2",
+    "nodemailer": "^6.9.4",
+    "nodemon": "^2.0.22",
+    "otp-generator": "^4.0.1",
+    "puppeteer-core": "^21.2.1"
+  }
+}
