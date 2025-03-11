@@ -1354,6 +1354,111 @@ export const employeeView = async (req, res) => {
   }
 };
 
+export const employeeViewV2 = async (req, res) => {
+  try {
+    let query = `
+      SELECT timesheet.*, employee.username AS username, createdByUser.username AS createdByUsername, modifierUser.username AS lastModifiedByUsername, location.location, events.events, events.eventColor, tasks.tasks, client.clientName
+      FROM timesheet
+      INNER JOIN users AS employee ON timesheet.employeeId = employee.id
+      INNER JOIN location ON timesheet.locationId = location.id
+      INNER JOIN events ON timesheet.eventId = events.id
+      INNER JOIN tasks ON timesheet.taskId = tasks.id
+      LEFT JOIN client ON timesheet.clientId = client.id
+      LEFT JOIN users AS createdByUser ON timesheet.createdBy = createdByUser.id
+      LEFT JOIN users AS modifierUser ON timesheet.lastModifiedBy = modifierUser.id
+    `;
+
+    const queryParams = [];
+    let whereClause = "";
+
+    // Check if user is logged in
+    if (req.user.userId && req.user.role === "2") {
+      const userId = req.user.userId;
+      whereClause = ` WHERE employee.id = ?`;
+      queryParams.push(userId);
+    }
+
+    // Filter by locationId
+    if (req.query.locationId) {
+      const locationIds = Array.isArray(req.query.locationId)
+        ? req.query.locationId
+        : [req.query.locationId];
+
+      whereClause += whereClause ? " AND" : " WHERE";
+      whereClause += ` timesheet.locationId IN (${locationIds
+        .map(() => "?")
+        .join(", ")})`;
+      queryParams.push(...locationIds);
+    }
+
+    // Filter by invoiced status
+    const invoicedValue = req.query.invoiced;
+    if (
+      invoicedValue !== undefined &&
+      (invoicedValue === "0" || invoicedValue === "1")
+    ) {
+      whereClause += whereClause ? " AND" : " WHERE";
+      whereClause += ` timesheet.invoiced = ?`;
+      queryParams.push(invoicedValue);
+    }
+
+    // Date filters: Default to current week, unless startDate and endDate are provided
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+    if (startDate && endDate) {
+      whereClause += whereClause ? " AND" : " WHERE";
+      whereClause += ` timesheet.date BETWEEN ? AND ?`;
+      queryParams.push(startDate, endDate);
+    } else {
+      // Default to current week
+      const startOfWeek = moment().startOf("week").format("YYYY-MM-DD");
+      const endOfWeek = moment().endOf("week").format("YYYY-MM-DD");
+      whereClause += whereClause ? " AND" : " WHERE";
+      whereClause += ` timesheet.date BETWEEN ? AND ?`;
+      queryParams.push(startOfWeek, endOfWeek);
+    }
+
+    query += whereClause;
+
+    // Execute the query to count total records
+    const [totalCountResult] = await connection.query(
+      `SELECT COUNT(*) AS totalCount FROM (${query}) AS countQuery`,
+      queryParams
+    );
+
+    const totalCount = totalCountResult[0].totalCount;
+
+    // Add ORDER BY for pagination
+    query += ` ORDER BY timesheet.timesheet_id DESC`;
+
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || Number.MAX_SAFE_INTEGER;
+    const offset = (page - 1) * pageSize;
+
+    // Add LIMIT and OFFSET
+    query += ` LIMIT ? OFFSET ?`;
+    queryParams.push(pageSize, offset);
+
+    // Execute the main query
+    const [result] = await connection.query(query, queryParams);
+
+    if (result.length > 0) {
+      res.status(200).json({
+        employees: result.map((employee) => ({ ...employee })),
+        currentPage: Number(page),
+        totalPages: Math.ceil(totalCount / pageSize),
+        currentPageData: result.length,
+        totalData: totalCount,
+      });
+    } else {
+      res.status(404).json({ message: "No employees found" });
+    }
+  } catch (error) {
+    console.error("Error retrieving employee information:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // Employee Entry Delete API
 export const employeeDelete = async (req, res) => {
   try {

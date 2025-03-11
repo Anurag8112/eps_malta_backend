@@ -16,6 +16,7 @@ import {
   addFromExcel,
   excelTemplateDownload,
   notificationSend,
+  employeeViewV2,
 } from "../Controller/timeSheetController.js";
 import multer from "multer";
 
@@ -61,6 +62,8 @@ router.put("/employee/update/invoiced", updateInvoices);
 
 // Employee Entry Get Route
 router.get("/employee/entryview", employeeView);
+
+router.get("/v2/employee/entryview", employeeViewV2);
 
 // Employee Entry Delete Route
 router.delete("/employee/entrydelete/:id", employeeDelete);

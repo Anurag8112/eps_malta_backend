@@ -19,7 +19,9 @@ import emailTemplateRoute from "./Router/LicenseTrackerRouter/emailTemplateRoute
 import notificationLogRoute from "./Router/LicenseTrackerRouter/notificationLogRoute.js";
 import companiesRoute from "./Router/CompaniesRouter/companiesRoute.js";
 import settingRoute from "./Router/SettingRouter/settingRoute.js";
-
+import swaggerJsDoc from "swagger-jsdoc";
+import swaggerUi from "swagger-ui-express";
+import oas from "express-oas-generator";
 import cors from "cors";
 import { authenticateJWT } from "./Middleware/authenticateJWT.js";
 import { connectToDatabase } from "./db/connection.js";
@@ -32,6 +34,7 @@ const PORT = 8000;
 app.use(express.json());
 
 app.use(cors());
+oas.init(app, {});
 
 // Upload Image Static
 app.use("/uploads", express.static("uploads"));
