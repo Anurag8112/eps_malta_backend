@@ -209,7 +209,7 @@ export const userAddV2 = async (req, res) => {
     ${process.env.PASSWORD_URL}/generate-password`;
 
     // Send an email to the provided email address
-    await sendMail(email, subject, text);
+    // await sendMail(email, subject, text);
     res.status(200).json({ message: "User created successfully" });
   } catch (error) {
     console.error("Error creating user:", error);
