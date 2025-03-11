@@ -47,7 +47,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/admin", adminRoute);
-app.use("/user", authenticateJWT, userRoute);
+app.use("/user", userRoute);
 app.use("/location", authenticateJWT, locationRoute);
 app.use("/tasks", authenticateJWT, tasksRoute);
 app.use("/events", authenticateJWT, eventsRoute);

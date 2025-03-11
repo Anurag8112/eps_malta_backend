@@ -2,6 +2,7 @@ import connection from "../index.js";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { sendMail } from "../Service/SendMail.js";
+import bcrypt from "bcrypt";
 
 dotenv.config();
 
@@ -46,6 +47,130 @@ export const userAdd = async (req, res) => {
     const insertQuery =
       "INSERT INTO users (username, email ,mobile, role) VALUES (?, ?, ? ,?)";
     await connection.query(insertQuery, [username, email, mobile, role]);
+
+    // Get the ID of the newly inserted user
+    const getUserIdQuery = "SELECT LAST_INSERT_ID() as user_id";
+    const [userIdResult] = await connection.query(getUserIdQuery);
+    const userId = userIdResult[0].user_id;
+
+    // Insert qualifications into user_qualifications table
+    for (const qualification of qualifications) {
+      const insertQualificationQuery =
+        "INSERT INTO user_qualifications (employee_id, qualification_id) VALUES (?, ?)";
+      await connection.query(insertQualificationQuery, [
+        userId,
+        qualification.qualification_id,
+      ]);
+    }
+
+    // Insert skills into user_skills table
+    for (const skill of skills) {
+      const insertSkillQuery =
+        "INSERT INTO user_skills (employee_id, skill_id) VALUES (?, ?)";
+      await connection.query(insertSkillQuery, [userId, skill.skill_id]);
+    }
+
+    // Insert languages into user_languages table
+    for (const language of languages) {
+      const insertLanguageQuery =
+        "INSERT INTO user_languages (employee_id, language_id) VALUES (?, ?)";
+      await connection.query(insertLanguageQuery, [
+        userId,
+        language.language_id,
+      ]);
+    }
+
+    const subject = "Action Required: Complete Your User Registration";
+    const text = `To finalize your registration, please click on the link : 
+    ${process.env.PASSWORD_URL}/generate-password`;
+
+    // Send an email to the provided email address
+    await sendMail(email, subject, text);
+    res.status(200).json({ message: "User created successfully" });
+  } catch (error) {
+    console.error("Error creating user:", error);
+    res.status(500).json({ error: "Failed to create user" });
+  }
+};
+
+export const userAddV2 = async (req, res) => {
+  try {
+    const {
+      username,
+      email,
+      mobile,
+      role,
+      qualifications,
+      skills,
+      languages,
+      password,
+    } = req.body;
+
+    // Check if required fields are missing
+    if (
+      !username ||
+      !email ||
+      !mobile ||
+      !role ||
+      !qualifications ||
+      !skills ||
+      !languages ||
+      !password ||
+      password == ""
+    ) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Check if the email or username already exists in the database
+    const checkUserQuery =
+      "SELECT * FROM users WHERE email = ? OR username = ?";
+    const [existingUsers] = await connection.query(checkUserQuery, [
+      email,
+      username,
+    ]);
+
+    if (existingUsers.length > 0) {
+      const existingUser = existingUsers[0];
+      if (existingUser.email === email) {
+        return res.status(409).json({ error: "Email already exists" });
+      }
+      if (existingUser.username === username) {
+        return res.status(409).json({ error: "Username already exists" });
+      }
+    }
+
+    if (password.length < 8) {
+      return res
+        .status(400)
+        .json({ error: "Password should be at least 8 characters long" });
+    }
+
+    const regex = /^(?=.*[!@#$%^&*])/.test(password)
+      ? /^(?=.*[A-Z])/.test(password)
+        ? /.{8,}/.test(password)
+          ? null
+          : "Password should be at least 8 characters long"
+        : "Password should contain at least one capital letter"
+      : "Password should contain at least one special character";
+
+    if (regex) {
+      return res.status(400).json({
+        error: regex,
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert the new user into the database with the hashed password
+    const insertQuery =
+      "INSERT INTO users (username, email ,mobile, role, password) VALUES (?, ?, ? ,?, ?)";
+    await connection.query(insertQuery, [
+      username,
+      email,
+      mobile,
+      role,
+      hashedPassword,
+    ]);
 
     // Get the ID of the newly inserted user
     const getUserIdQuery = "SELECT LAST_INSERT_ID() as user_id";
