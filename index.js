@@ -25,17 +25,14 @@ import oas from "express-oas-generator";
 import cors from "cors";
 import { authenticateJWT } from "./Middleware/authenticateJWT.js";
 import { connectToDatabase } from "./db/connection.js";
-import {
-  emailScheduler,
-  clientEmailScheduler,
-} from "./Scheduler/emailScheduler.js";
+import { emailScheduler } from "./Scheduler/emailScheduler.js";
+import { clientEmailScheduler } from "./Scheduler/emailScheduler.js";
 
 const app = express();
 const PORT = 8000;
 
 app.use(express.json());
 
-// Enable CORS with proper settings
 app.use(
   cors({
     origin: "*", // Allow all origins (Change to a specific domain if needed)
@@ -51,49 +48,41 @@ oas.init(app, {});
 app.use("/uploads", express.static("uploads"));
 
 // Establish a database connection
-connectToDatabase()
-  .then((connection) => {
-    console.log("Database connected");
+const connection = await connectToDatabase();
 
-    // Define routes
-    app.get("/", (req, res) => {
-      res.json("Service Is Running...");
-    });
+app.get("/", (req, res) => {
+  res.json("Service Is Running...");
+});
 
-    app.use("/admin", adminRoute);
-    app.use("/user", userRoute);
-    app.use("/location", authenticateJWT, locationRoute);
-    app.use("/tasks", authenticateJWT, tasksRoute);
-    app.use("/events", authenticateJWT, eventsRoute);
-    app.use("/timesheet", authenticateJWT, timeSheetRoute);
-    app.use("/client", authenticateJWT, clientRoute);
-    app.use("/template", authenticateJWT, templateRoute);
-    app.use("/qualification", authenticateJWT, qualificationRoute);
-    app.use("/skill", authenticateJWT, skillRoute);
-    app.use("/language", authenticateJWT, languageRoute);
-    app.use("/sport", authenticateJWT, sportRoute);
-    app.use("/roster", authenticateJWT, rosterRoute);
+app.use("/admin", adminRoute);
+app.use("/user", userRoute);
+app.use("/location", authenticateJWT, locationRoute);
+app.use("/tasks", authenticateJWT, tasksRoute);
+app.use("/events", authenticateJWT, eventsRoute);
+app.use("/timesheet", authenticateJWT, timeSheetRoute);
+app.use("/client", authenticateJWT, clientRoute);
+app.use("/template", authenticateJWT, templateRoute);
+app.use("/qualification", authenticateJWT, qualificationRoute);
+app.use("/skill", authenticateJWT, skillRoute);
+app.use("/language", authenticateJWT, languageRoute);
+app.use("/sport", authenticateJWT, sportRoute);
+app.use("/roster", authenticateJWT, rosterRoute);
 
-    // License Tracker
-    app.use("/license", authenticateJWT, licenseTypeRoute);
-    app.use("/forms", authenticateJWT, formsRoute);
-    app.use("/license/report", authenticateJWT, licenseReportRoute);
-    app.use("/license/email/template", authenticateJWT, emailTemplateRoute);
-    app.use("/license/notification/log", authenticateJWT, notificationLogRoute);
+// License Tracker
+app.use("/license", authenticateJWT, licenseTypeRoute);
+app.use("/forms", authenticateJWT, formsRoute);
+app.use("/license/report", authenticateJWT, licenseReportRoute);
+app.use("/license/email/template", authenticateJWT, emailTemplateRoute);
+app.use("/license/notification/log", authenticateJWT, notificationLogRoute);
 
-    // Companies
-    app.use("/companies", authenticateJWT, companiesRoute);
+// Companies
+app.use("/companies", authenticateJWT, companiesRoute);
 
-    // Setting
-    app.use("/setting", authenticateJWT, settingRoute);
+// Setting
+app.use("/setting", authenticateJWT, settingRoute);
 
-    // Start the server after database connection
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error("Database connection error:", err);
-  });
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
 
-export default app;
+export default connection;
