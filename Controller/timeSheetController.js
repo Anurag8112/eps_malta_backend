@@ -1372,8 +1372,8 @@ export const employeeViewV2 = async (req, res) => {
     let whereClause = "";
 
     // Check if user is logged in
-    if (req.user.userId && req.user.role === "2") {
-      const userId = req.user.userId;
+    if ((req.user.userId && req.user.role === "2") || req.query.userId) {
+      const userId = req.query.userId ? req.query.userId : req.user.userId;
       whereClause = ` WHERE employee.id = ?`;
       queryParams.push(userId);
     }
