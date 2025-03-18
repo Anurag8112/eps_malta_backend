@@ -590,7 +590,7 @@ export const userSummaryView = async (req, res) => {
 
 export const addFCMToken = async (req, res) => {
   try {
-    const { userId, fcmToken } = req.body;
+    const { userId, fcmToken, userAgent, deviceType } = req.body;
 
     if (!userId || !fcmToken) {
       return res
@@ -606,12 +606,14 @@ export const addFCMToken = async (req, res) => {
 
     if (userRows.length > 0) {
       const query = `
-        INSERT INTO push_notification (fcm_token, user_id, created_at, updated_at) 
-        VALUES (?, ?, ?, ?)`;
+        INSERT INTO push_notification (fcm_token, user_id, user_agent, device_type, created_at, updated_at) 
+        VALUES (?, ?, ?, ?,?,?)`;
 
       await connection.execute(query, [
         fcmToken,
         userId,
+        userAgent,
+        deviceType,
         new Date(),
         new Date(),
       ]);
