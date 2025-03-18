@@ -652,7 +652,7 @@ export const getFCMToken = async (req, res) => {
 
     return res
       .status(200)
-      .json(notificationRows.length ? notificationRows[0] : {});
+      .json(notificationRows.length ? notificationRows : [{}]);
   } catch (error) {
     console.error("Database query error:", error);
     return res.status(500).json({ message: "Internal server error" });
