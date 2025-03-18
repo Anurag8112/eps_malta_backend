@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { sendMail } from "../Service/SendMail.js";
 import bcrypt from "bcrypt";
+import { request } from "http";
 
 dotenv.config();
 
@@ -584,5 +585,51 @@ export const userSummaryView = async (req, res) => {
     return res.status(500).json({
       error: "Failed to retrieve the data of Qualification, Skills, Languages.",
     });
+  }
+};
+
+export const addFCMToken = async (req, res) => {
+  try {
+    const { userId, fcmToken } = req.body;
+
+    if (!userId || !fcmToken) {
+      return res
+        .status(400)
+        .json({ message: "userId and fcmToken are required" });
+    }
+
+    // Check if the user exists
+    const [userRows] = await connection.execute(
+      "SELECT * FROM users WHERE id = ?",
+      [userId]
+    );
+
+    if (userRows.length > 0) {
+      const query = `
+        INSERT INTO push_notification (fcm_token, user_id, created_at, updated_at) 
+        VALUES (?, ?, ?, ?)`;
+
+      await connection.execute(query, [
+        fcmToken,
+        userId,
+        new Date(),
+        new Date(),
+      ]);
+    } else {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Fetch the inserted push notification entry
+    const [notificationRows] = await connection.execute(
+      "SELECT * FROM push_notification WHERE user_id = ?",
+      [userId]
+    );
+
+    return res
+      .status(200)
+      .json(notificationRows.length ? notificationRows[0] : {});
+  } catch (error) {
+    console.error("Database query error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };

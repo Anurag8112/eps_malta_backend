@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getUserProfileData,
+  addFCMToken,
   userAdd,
   userAddV2,
   userDelete,
@@ -15,6 +16,7 @@ const router = express.Router();
 // Public Routes (No Authentication)
 router.post("/register", authenticateJWT, userAdd);
 router.post("/v2/register", userAddV2);
+router.post("/fcm", addFCMToken);
 
 // Protected Routes (Require Authentication)
 router.get("/view", authenticateJWT, userView);
