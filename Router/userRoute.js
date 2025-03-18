@@ -8,6 +8,7 @@ import {
   userEdit,
   userSummaryView,
   userView,
+  getFCMToken,
 } from "../Controller/userController.js";
 import { authenticateJWT } from "../Middleware/authenticateJWT.js";
 
@@ -17,6 +18,7 @@ const router = express.Router();
 router.post("/register", authenticateJWT, userAdd);
 router.post("/v2/register", userAddV2);
 router.post("/fcm", addFCMToken);
+router.get("/fcm", getFCMToken);
 
 // Protected Routes (Require Authentication)
 router.get("/view", authenticateJWT, userView);

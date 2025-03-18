@@ -635,3 +635,26 @@ export const addFCMToken = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const getFCMToken = async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: "userId are required" });
+    }
+
+    // Fetch the inserted push notification entry
+    const [notificationRows] = await connection.execute(
+      "SELECT * FROM push_notification WHERE user_id = ?",
+      [userId]
+    );
+
+    return res
+      .status(200)
+      .json(notificationRows.length ? notificationRows[0] : {});
+  } catch (error) {
+    console.error("Database query error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
