@@ -378,7 +378,7 @@ export const getUserPushProfileData = async (req, res) => {
 
     const [results] = await connection.query(query, params);
 
-    res.status(200).json(results);
+    res.status(200).json({ data: results, count: results.length });
   } catch (error) {
     console.error("Error fetching user data:", error);
     res.status(500).json({ message: "Internal server error" });
