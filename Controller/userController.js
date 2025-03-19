@@ -363,19 +363,18 @@ export const getUserProfileData = async (req, res) => {
 export const getUserPushProfileData = async (req, res) => {
   try {
     const userId = req.params.userId;
-    const readOnly = req.query.readOnly === "true"; // Convert string to boolean
-
-    console.log("readOnly", readOnly);
+    const readOnly = req.query.readOnly;
 
     let query = "SELECT * FROM push_notification_logs WHERE user_id = ?";
     const params = [userId];
 
-    if (readOnly) {
+    if (readOnly === "true") {
       query += " AND is_read = ?";
-      params.push(1); // Assuming `is_read` is stored as 1 (true) or 0 (false)
+      params.push(1);
+    } else if (readOnly === "false") {
+      query += " AND is_read = ?";
+      params.push(0);
     }
-
-    console.log("query", query, "params", params);
 
     const [results] = await connection.query(query, params);
 
