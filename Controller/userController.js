@@ -360,6 +360,32 @@ export const getUserProfileData = async (req, res) => {
   }
 };
 
+export const getUserPushProfileData = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const readOnly = req.query.readOnly === "true"; // Convert string to boolean
+
+    console.log("readOnly", readOnly);
+
+    let query = "SELECT * FROM push_notification_logs WHERE user_id = ?";
+    const params = [userId];
+
+    if (readOnly) {
+      query += " AND is_read = ?";
+      params.push(1); // Assuming `is_read` is stored as 1 (true) or 0 (false)
+    }
+
+    console.log("query", query, "params", params);
+
+    const [results] = await connection.query(query, params);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // User Edit PUT API
 export const userEdit = async (req, res) => {
   try {
