@@ -19,6 +19,7 @@ router.post("/register", authenticateJWT, userAdd);
 router.post("/v2/register", userAddV2);
 router.post("/fcm", addFCMToken);
 router.get("/fcm", getFCMToken);
+router.get("/profile/view/:userId", authenticateJWT, getUserProfileData);
 
 // Protected Routes (Require Authentication)
 router.get("/view", authenticateJWT, userView);

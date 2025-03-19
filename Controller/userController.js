@@ -339,7 +339,7 @@ export const userView = async (req, res) => {
 // GET USER PROFILE DATA
 export const getUserProfileData = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.params.userId;
 
     const query =
       "SELECT username, email, mobile, role FROM users WHERE id = ?";
