@@ -17,6 +17,7 @@ import {
   excelTemplateDownload,
   notificationSend,
   employeeViewV2,
+  getShiftByID,
 } from "../Controller/timeSheetController.js";
 import multer from "multer";
 
@@ -42,6 +43,8 @@ router.get("/employee", searchEmployee);
 
 // Timesheet log
 router.get("/log/details", logActionView);
+
+router.get("/log/:timesheetId", getShiftByID);
 
 // Location , Events , Tasks Route
 router.get("/employee/details", employeeDetails);

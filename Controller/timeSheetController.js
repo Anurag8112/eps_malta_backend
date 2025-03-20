@@ -2719,6 +2719,25 @@ export const logActionView = async (req, res) => {
   }
 };
 
+export const getShiftByID = async (req, res) => {
+  const { timesheetId } = req.params;
+  try {
+    const query = `
+    SELECT 
+      *
+    FROM 
+      timesheet as timesheet
+    JOIN timesheet_log as tsl on timesheet.timesheet_id = tsl.timesheetId
+    WHERE timesheet.timesheet_id = ?`;
+
+    const [result] = await connection.query(query, [timesheetId]);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error retrieving log:", error);
+    res.status(500).json({ error: "Failed to retrieve log" });
+  }
+};
+
 // Schedule calendar ----------------------------------------------------------------------------------------
 
 export const notificationSend = async (req, res) => {
