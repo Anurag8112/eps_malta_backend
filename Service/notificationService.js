@@ -2,9 +2,15 @@ import admin from "firebase-admin";
 import fs from "fs";
 
 // Ensure you're reading the correct service account file path
-const serviceAccount = JSON.parse(
-  process.env.FIREBASE_CREDENTIALS
-);
+
+const firebaseENV= process.env.FIREBASE_CREDENTIALS;
+let serviceAccount;
+
+if(firebaseENV){
+     serviceAccount = JSON.parse(
+        firebaseENV
+    );
+}
 
 console.log('serviceAccount', serviceAccount);
 
