@@ -19,6 +19,7 @@ import emailTemplateRoute from "./Router/LicenseTrackerRouter/emailTemplateRoute
 import notificationLogRoute from "./Router/LicenseTrackerRouter/notificationLogRoute.js";
 import companiesRoute from "./Router/CompaniesRouter/companiesRoute.js";
 import settingRoute from "./Router/SettingRouter/settingRoute.js";
+import pushNotificationRoute from "./Router/pushNotificationRoute.js"
 import swaggerJsDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import oas from "express-oas-generator";
@@ -67,6 +68,7 @@ app.use("/skill", authenticateJWT, skillRoute);
 app.use("/language", authenticateJWT, languageRoute);
 app.use("/sport", authenticateJWT, sportRoute);
 app.use("/roster", authenticateJWT, rosterRoute);
+app.use("/push-notification",authenticateJWT,pushNotificationRoute)
 
 // License Tracker
 app.use("/license", authenticateJWT, licenseTypeRoute);

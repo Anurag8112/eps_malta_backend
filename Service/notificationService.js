@@ -1,35 +1,42 @@
 import admin from "firebase-admin";
 import fs from "fs";
 
-// Initialize Firebase Admin SDK
+// Ensure you're reading the correct service account file path
 const serviceAccount = JSON.parse(
-  fs.readFileSync("./config/firebase-service-account.json", "utf8")
+  process.env.FIREBASE_CREDENTIALS
 );
 
+console.log('serviceAccount', serviceAccount);
+
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.cert(serviceAccount)
 });
 
 /**
- * Send Push Notification
- * @param {string} token - Device FCM token
- * @param {string} title - Notification title
- * @param {string} body - Notification body
- * @param {object} data - Optional data payload
+ * Sends a push notification via Firebase Cloud Messaging (FCM).
+ * @param {string} token - The FCM token of the recipient device.
+ * @param {string} title - Notification title.
+ * @param {string} body - Notification body message.
+ * @param {object} [data] - Optional data payload.
+ * @returns {Promise<object>} - FCM response.
  */
 export const sendPushNotification = async (token, title, body, data = {}) => {
-  const message = {
-    notification: { title, body },
-    data, // Optional additional data
-    token,
-  };
+    const message = {
+        notification: {
+            title,
+            body
+        },
+        data,
+        token
+    };
 
-  try {
-    const response = await admin.messaging().send(message);
-    console.log("Notification sent successfully:", response);
-    return { success: true, messageId: response };
-  } catch (error) {
-    console.error("Error sending notification:", error);
-    return { success: false, error: error.message };
-  }
+    try {
+        const response = await admin.messaging().send(message);
+        console.log("Notification sent successfully:", response);
+        return { success: true, response };
+    } catch (error) {
+        console.error("Error sending notification:", error);
+        return { success: false, error };
+    }
 };
+

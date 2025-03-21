@@ -10,6 +10,8 @@ import {
 import dotenv from "dotenv";
 import { sendMail } from "../Service/SendMail.js";
 import { whatsappScheduler } from "../Scheduler/whatsappScheduler.js";
+import { sendPushNotification } from "../Service/notificationService.js";
+import { ENUM_NOTIFICATION_TYPE, NOTIFICATION_MESSAGE } from "../constants/app.contsants.js";
 
 dotenv.config();
 
@@ -512,6 +514,19 @@ export const employeeDetailsAdd = async (req, res) => {
     const insertionResults = await Promise.all(insertionPromises);
 
     if (insertionResults.every((result) => result)) {
+      const userfcmTokenQuery =  "select * from push_notification  where user_id in (?)";
+      const [result] = await connection.execute(userfcmTokenQuery, [...employeeIds]);
+
+      const notificationData= NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_ADDED];
+
+      if (result.length > 0) {
+        await Promise.all(
+            result.map(({ fcm_token }) => 
+                sendPushNotification(fcm_token,notificationData.subject, notificationData.body)
+            )
+        );
+    }
+
       res.status(201).json({ message: "Employee entries added successfully" });
     } else {
       res.status(500).json({ message: "Failed to add employee entries" });
@@ -1176,6 +1191,19 @@ export const employeeDetailsUpdate = async (req, res) => {
           await connection.execute(updateNotificationQuery, [id]);
         }
       }
+
+      const userfcmTokenQuery =  "select * from push_notification  where user_id in (?)";
+      const [result] = await connection.execute(userfcmTokenQuery, [employeeId]);
+
+      const notificationData= NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_UPDATED];
+
+      if (result.length > 0) {
+        await Promise.all(
+            result.map(({ fcm_token }) => 
+                sendPushNotification(fcm_token,notificationData.subject, notificationData.body)
+            )
+        );
+    }
 
       res.status(200).json({ message: "Employee entry updated successfully" });
     } else {
