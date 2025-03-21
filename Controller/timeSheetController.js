@@ -488,6 +488,29 @@ export const employeeDetailsAdd = async (req, res) => {
                 // Log the add action
                 await logAction("add", null, result.insertId, userId);
                 insertionPromises.push(true);
+
+                const userfcmTokenQuery =  "select * from push_notification  where user_id in (?)";
+                const [fcmResult] = await connection.execute(userfcmTokenQuery, [employeeId]);
+
+                const notificationData= NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_ADDED];
+
+                if (fcmResult.length > 0) {
+                  await Promise.all(
+                    fcmResult.map(({ fcm_token }) => 
+                          sendPushNotification(fcm_token,notificationData.subject, notificationData.body)
+                      )
+                  );
+
+                  const notificationId = await sendPushNotificationLogs(employeeId,notificationData.subject,notificationData.body,result.insertId);
+
+                  console.log('notificationId',notificationId)
+
+                  await Promise.all(
+                    fcmResult.map(({ id }) => 
+                      deviceNotificationMapping(id,notificationId)
+                    )
+                  );
+                }
               } else {
                 insertionPromises.push(false);
               }
@@ -502,6 +525,7 @@ export const employeeDetailsAdd = async (req, res) => {
           ) {
             return res.status(409).json({ message: "Entry already exists" });
           }
+          
         } catch (error) {
           console.error("Error checking existing entries:", error);
           return res
@@ -514,19 +538,6 @@ export const employeeDetailsAdd = async (req, res) => {
     const insertionResults = await Promise.all(insertionPromises);
 
     if (insertionResults.every((result) => result)) {
-      const userfcmTokenQuery =  "select * from push_notification  where user_id in (?)";
-      const [result] = await connection.execute(userfcmTokenQuery, [...employeeIds]);
-
-      const notificationData= NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_ADDED];
-
-      if (result.length > 0) {
-        await Promise.all(
-            result.map(({ fcm_token }) => 
-                sendPushNotification(fcm_token,notificationData.subject, notificationData.body)
-            )
-        );
-    }
-
       res.status(201).json({ message: "Employee entries added successfully" });
     } else {
       res.status(500).json({ message: "Failed to add employee entries" });
@@ -536,6 +547,18 @@ export const employeeDetailsAdd = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const sendPushNotificationLogs = async (userId, subject, body, timesheetId) => {
+  const pushLogsQuery = "insert into push_notification_logs (user_id,subject,body,created_at,updated_at,is_read,timesheet_id) values (?,?,?,?,?,?,?)";
+  const [result]= await connection.execute(pushLogsQuery, [userId,subject,body,new Date(), new Date(),false,timesheetId]);
+
+  return result.insertId;
+}
+
+export const deviceNotificationMapping = async (deviceId, notificationId) => {
+  const mappingQuery = "insert into notification_device_mapping (device_token_id,notification_id,created_at) values (?,?,?)";
+  await connection.execute(mappingQuery, [deviceId,notificationId,new Date()]);
+}
 
 // Function to convert decimal to time
 function decimalToTime(decimal) {
@@ -1193,17 +1216,27 @@ export const employeeDetailsUpdate = async (req, res) => {
       }
 
       const userfcmTokenQuery =  "select * from push_notification  where user_id in (?)";
-      const [result] = await connection.execute(userfcmTokenQuery, [employeeId]);
+                const [fcmResult] = await connection.execute(userfcmTokenQuery, [employeeId]);
 
-      const notificationData= NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_UPDATED];
+                const notificationData= NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_UPDATED];
 
-      if (result.length > 0) {
-        await Promise.all(
-            result.map(({ fcm_token }) => 
-                sendPushNotification(fcm_token,notificationData.subject, notificationData.body)
-            )
-        );
-    }
+                if (fcmResult.length > 0) {
+                  await Promise.all(
+                    fcmResult.map(({ fcm_token }) => 
+                          sendPushNotification(fcm_token,notificationData.subject, notificationData.body)
+                      )
+                  );
+
+                  const notificationId = await sendPushNotificationLogs(employeeId,notificationData.subject,notificationData.body,result.insertId);
+
+                  console.log('notificationId',notificationId)
+
+                  await Promise.all(
+                    fcmResult.map(({ id }) => 
+                      deviceNotificationMapping(id,notificationId)
+                    )
+                  );
+                }
 
       res.status(200).json({ message: "Employee entry updated successfully" });
     } else {
