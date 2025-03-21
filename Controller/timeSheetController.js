@@ -2728,6 +2728,9 @@ export const getShiftByID = async (req, res) => {
     FROM 
       timesheet as timesheet
     JOIN timesheet_log as tsl on timesheet.timesheet_id = tsl.timesheetId
+    JOIN events as evt on evt.id = timesheet.eventID
+    JOIN users as usr on usr.id = timesheet.employeeId
+    JOIN location as loc on loc.id = timesheet.locationId
     WHERE timesheet.timesheet_id = ?`;
 
     const [result] = await connection.query(query, [timesheetId]);
