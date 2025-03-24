@@ -3,7 +3,6 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { sendMail } from "../Service/SendMail.js";
 import bcrypt from "bcrypt";
-import { request } from "http";
 
 dotenv.config();
 
