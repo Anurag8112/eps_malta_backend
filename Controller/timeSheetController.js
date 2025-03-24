@@ -388,6 +388,8 @@ export const employeeDetailsAdd = async (req, res) => {
 
     const insertionPromises = [];
 
+    let index=0;
+
     for (const dateObj of date) {
       const { date: currentDate, isPublicHoliday } = dateObj;
       const dateInstance = new Date(currentDate);
@@ -496,9 +498,8 @@ export const employeeDetailsAdd = async (req, res) => {
 
                 if (fcmResult.length > 0) {
                   console.log('dateobject', dateObj, new Date().toISOString().split("T")[0] ,dateObj == new Date().toISOString().split("T")[0])
-                  let index=0;
                   if (
-                     index ==0
+                     index == 0
                   ) {
                     await Promise.all(
                       fcmResult.map(({ fcm_token }) =>
