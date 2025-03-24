@@ -495,11 +495,18 @@ export const employeeDetailsAdd = async (req, res) => {
                 const notificationData= NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_ADDED];
 
                 if (fcmResult.length > 0) {
-                  await Promise.all(
-                    fcmResult.map(({ fcm_token }) => 
-                          sendPushNotification(fcm_token,notificationData.subject, notificationData.body)
+                  console.log('dateobject', dateObj, new Date().toISOString().split("T")[0] ,dateObj == new Date().toISOString().split("T")[0])
+                  let index=0;
+                  if (
+                     index ==0
+                  ) {
+                    await Promise.all(
+                      fcmResult.map(({ fcm_token }) =>
+                        sendPushNotification(fcm_token, notificationData.subject, notificationData.body)
                       )
-                  );
+                    );
+                    index++;
+                  }                  
 
                   const notificationId = await sendPushNotificationLogs(employeeId,notificationData.subject,notificationData.body,result.insertId);
 

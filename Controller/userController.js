@@ -365,7 +365,7 @@ export const getUserPushProfileData = async (req, res) => {
     const userId = req.params.userId;
     const readOnly = req.query.readOnly;
 
-    let query = "SELECT * FROM push_notification_logs WHERE user_id = ?";
+    let query = `SELECT * FROM push_notification_logs as pnl join timesheet as ts on pnl.timesheet_id = ts.id WHERE pnl.user_id = ? and ts.date = ${new Date().toISOString().split("T")[0]}`;
     const params = [userId];
 
     if (readOnly === "true") {
