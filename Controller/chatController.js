@@ -1,6 +1,8 @@
 import { query } from "express";
 import connection from "../index.js";
 import moment from "moment-timezone";
+import { sendPushNotification } from "../Service/notificationService.js";
+import { NOTIFICATION_MESSAGE } from "../constants/app.contsants.js";
 
 export const createConversations = async (req, res) => {
     try {
@@ -171,7 +173,7 @@ export const getConversations = async (req, res) => {
 
 export const getOneToOneConversations = async (req, res) => {
     const { receiverId } = req.query;
-    const loggedInUserId = req.user.userId; 
+    const loggedInUserId = req.user.userId;
 
     const query = `
         SELECT cnv.id as conversation_id, cnv.type, cnv.created_at, u.username AS conversation_name 
@@ -203,18 +205,42 @@ export const createMessages = async (req, res) => {
             return res.status(400).json({ error: "conversation_id, sender_id, and message are required." });
         }
 
+        await connection.beginTransaction();
+
         // Insert message into database
-        const query = `
+        const insertQuery = `
           INSERT INTO messages (conversation_id, sender_id, message, is_read, created_at) 
           VALUES (?, ?, ?, false, NOW())`;
         const values = [conversation_id, sender_id, message];
 
-        const [result] = await connection.execute(query, values);
+        const [result] = await connection.execute(insertQuery, values);
+
+        // Fetch participants and their FCM tokens concurrently
+        const participantsQuery = `
+          SELECT DISTINCT user_id FROM conversation_participants 
+          WHERE conversation_id = ? AND user_id != ?`;
+        const [participants] = await connection.execute(participantsQuery, [conversation_id, sender_id]);
+
+        if (participants.length > 0) {
+            const userIds = participants.map(p => p.user_id);
+
+            const fcmQuery = `SELECT fcm_token FROM push_notification WHERE user_id IN (${userIds.map(() => '?').join(',')})`;
+            const [fcmTokens] = await connection.execute(fcmQuery, userIds);
+
+            fcmTokens.forEach(({ fcm_token }) => {
+                sendPushNotification(fcm_token, NOTIFICATION_MESSAGE.NEW_MESSAGE_RECIEVED.subject, NOTIFICATION_MESSAGE.NEW_MESSAGE_RECIEVED.body);
+            });
+        }
+
+        await connection.commit();
+
         res.status(201).json({ id: result.insertId, conversation_id, sender_id, message });
     } catch (err) {
+        await connection.rollback();
         res.status(500).json({ error: "Internal server error", details: err.message });
     }
-}
+};
+
 
 export const getMessages = async (req, res) => {
     try {
