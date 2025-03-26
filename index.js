@@ -21,6 +21,7 @@ import companiesRoute from "./Router/CompaniesRouter/companiesRoute.js";
 import settingRoute from "./Router/SettingRouter/settingRoute.js";
 import pushNotificationRoute from "./Router/pushNotificationRoute.js"
 import feedbackRoute from "./Router/feedbackRoute.js"
+import chatRoute from "./Router/chatRoute.js"
 import swaggerJsDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import oas from "express-oas-generator";
@@ -69,8 +70,9 @@ app.use("/skill", authenticateJWT, skillRoute);
 app.use("/language", authenticateJWT, languageRoute);
 app.use("/sport", authenticateJWT, sportRoute);
 app.use("/roster", authenticateJWT, rosterRoute);
-app.use("/push-notification",authenticateJWT,pushNotificationRoute);
-app.use("/feedback",authenticateJWT,feedbackRoute);
+app.use("/push-notification", authenticateJWT, pushNotificationRoute);
+app.use("/feedback", authenticateJWT, feedbackRoute);
+app.use("/chat", authenticateJWT, chatRoute);
 
 // License Tracker
 app.use("/license", authenticateJWT, licenseTypeRoute);
