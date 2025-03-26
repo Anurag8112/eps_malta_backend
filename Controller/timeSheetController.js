@@ -388,7 +388,7 @@ export const employeeDetailsAdd = async (req, res) => {
 
     const insertionPromises = [];
 
-    let index=0;
+    let index = 0;
 
     for (const dateObj of date) {
       const { date: currentDate, isPublicHoliday } = dateObj;
@@ -491,34 +491,36 @@ export const employeeDetailsAdd = async (req, res) => {
                 await logAction("add", null, result.insertId, userId);
                 insertionPromises.push(true);
 
-                const userfcmTokenQuery =  "select * from push_notification  where user_id in (?)";
-                const [fcmResult] = await connection.execute(userfcmTokenQuery, [employeeId]);
+                //commenting this code for testing perpose.
 
-                const notificationData= NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_ADDED];
+                // const userfcmTokenQuery =  "select * from push_notification  where user_id in (?)";
+                // const [fcmResult] = await connection.execute(userfcmTokenQuery, [employeeId]);
 
-                if (fcmResult.length > 0) {
-                  console.log('dateobject', dateObj, new Date().toISOString().split("T")[0] ,dateObj == new Date().toISOString().split("T")[0])
-                  if (
-                     index == 0
-                  ) {
-                    await Promise.all(
-                      fcmResult.map(({ fcm_token }) =>
-                        sendPushNotification(fcm_token, notificationData.subject, notificationData.body)
-                      )
-                    );
-                    index++;
-                  }                  
+                // const notificationData= NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_ADDED];
 
-                  const notificationId = await sendPushNotificationLogs(employeeId,notificationData.subject,notificationData.body,result.insertId);
+                // if (fcmResult.length > 0) {
+                //   console.log('dateobject', dateObj, new Date().toISOString().split("T")[0] ,dateObj == new Date().toISOString().split("T")[0])
+                //   if (
+                //      index == 0
+                //   ) {
+                //     await Promise.all(
+                //       fcmResult.map(({ fcm_token }) =>
+                //         sendPushNotification(fcm_token, notificationData.subject, notificationData.body)
+                //       )
+                //     );
+                //     index++;
+                //   }                  
 
-                  console.log('notificationId',notificationId)
+                //   const notificationId = await sendPushNotificationLogs(employeeId,notificationData.subject,notificationData.body,result.insertId);
 
-                  await Promise.all(
-                    fcmResult.map(({ id }) => 
-                      deviceNotificationMapping(id,notificationId)
-                    )
-                  );
-                }
+                //   console.log('notificationId',notificationId)
+
+                //   await Promise.all(
+                //     fcmResult.map(({ id }) => 
+                //       deviceNotificationMapping(id,notificationId)
+                //     )
+                //   );
+                // }
               } else {
                 insertionPromises.push(false);
               }
@@ -533,7 +535,7 @@ export const employeeDetailsAdd = async (req, res) => {
           ) {
             return res.status(409).json({ message: "Entry already exists" });
           }
-          
+
         } catch (error) {
           console.error("Error checking existing entries:", error);
           return res
@@ -558,14 +560,15 @@ export const employeeDetailsAdd = async (req, res) => {
 
 export const sendPushNotificationLogs = async (userId, subject, body, timesheetId) => {
   const pushLogsQuery = "insert into push_notification_logs (user_id,subject,body,created_at,updated_at,is_read,timesheet_id) values (?,?,?,?,?,?,?)";
-  const [result]= await connection.execute(pushLogsQuery, [userId,subject,body,new Date(), new Date(),false,timesheetId]);
+  const [result] = await connection.execute(pushLogsQuery, [userId, subject, body, new Date(), new Date(), false, timesheetId]);
 
   return result.insertId;
 }
 
 export const deviceNotificationMapping = async (deviceId, notificationId) => {
+  console.log('deviceNotificationMapping', deviceId, notificationId);
   const mappingQuery = "insert into notification_device_mapping (device_token_id,notification_id,created_at) values (?,?,?)";
-  await connection.execute(mappingQuery, [deviceId,notificationId,new Date()]);
+  await connection.execute(mappingQuery, [deviceId, notificationId, new Date()]);
 }
 
 // Function to convert decimal to time
@@ -718,9 +721,8 @@ export const addFromExcel = async (req, res) => {
             : data.clientEmail;
         if (!emailPattern.test(clientEmail)) {
           return res.status(400).json({
-            error: `Row ${
-              i + 2
-            }: Invalid client email format for ${clientEmail}`,
+            error: `Row ${i + 2
+              }: Invalid client email format for ${clientEmail}`,
           });
         }
 
@@ -894,9 +896,8 @@ export const addFromExcel = async (req, res) => {
             : data.clientEmail;
         if (!emailPattern.test(clientEmail)) {
           return res.status(400).json({
-            error: `Row ${
-              i + 2
-            }: Invalid client email format for ${clientEmail}`,
+            error: `Row ${i + 2
+              }: Invalid client email format for ${clientEmail}`,
           });
         }
 
@@ -1223,28 +1224,30 @@ export const employeeDetailsUpdate = async (req, res) => {
         }
       }
 
-      const userfcmTokenQuery =  "select * from push_notification  where user_id in (?)";
-                const [fcmResult] = await connection.execute(userfcmTokenQuery, [employeeId]);
+      // commenting this code for testing perpose.
 
-                const notificationData= NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_UPDATED];
+      // const userfcmTokenQuery = "select * from push_notification  where user_id in (?)";
+      // const [fcmResult] = await connection.execute(userfcmTokenQuery, [employeeId]);
 
-                if (fcmResult.length > 0) {
-                  await Promise.all(
-                    fcmResult.map(({ fcm_token }) => 
-                          sendPushNotification(fcm_token,notificationData.subject, notificationData.body)
-                      )
-                  );
+      // const notificationData = NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_UPDATED];
 
-                  const notificationId = await sendPushNotificationLogs(employeeId,notificationData.subject,notificationData.body,result.insertId);
+      // if (fcmResult.length > 0) {
+      //   await Promise.all(
+      //     fcmResult.map(({ fcm_token }) =>
+      //       sendPushNotification(fcm_token, notificationData.subject, notificationData.body)
+      //     )
+      //   );
 
-                  console.log('notificationId',notificationId)
+      //   const notificationId = await sendPushNotificationLogs(employeeId, notificationData.subject, notificationData.body, result.insertId);
 
-                  await Promise.all(
-                    fcmResult.map(({ id }) => 
-                      deviceNotificationMapping(id,notificationId)
-                    )
-                  );
-                }
+      //   console.log('notificationId', notificationId)
+
+      //   await Promise.all(
+      //     fcmResult.map(({ id }) =>
+      //       deviceNotificationMapping(id, notificationId)
+      //     )
+      //   );
+      // }
 
       res.status(200).json({ message: "Employee entry updated successfully" });
     } else {
@@ -1680,7 +1683,7 @@ export const employeeReport = async (req, res) => {
     // Execute the query without pagination for grand total calculation
     const [totalResult] = await connection.execute(
       `SELECT * FROM timesheet` +
-        (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
+      (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
       queryParams
     );
 
@@ -1711,7 +1714,7 @@ export const employeeReport = async (req, res) => {
     // Get the total count of records
     const [countResult] = await connection.execute(
       `SELECT COUNT(*) as totalCount FROM timesheet` +
-        (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
+      (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
       queryParams
     );
     const totalCount = countResult[0].totalCount;
@@ -2156,7 +2159,7 @@ export const clientReport = async (req, res) => {
     // Execute the query without pagination for grand total calculation
     const [totalResult] = await connection.execute(
       `SELECT * FROM timesheet` +
-        (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
+      (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
       queryParams
     );
 
@@ -2184,7 +2187,7 @@ export const clientReport = async (req, res) => {
     // Get the total count of records
     const [countResult] = await connection.execute(
       `SELECT COUNT(*) as totalCount FROM timesheet` +
-        (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
+      (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
       queryParams
     );
     const totalCount = countResult[0].totalCount;
@@ -2526,7 +2529,7 @@ export const clientSummaryReport = async (req, res) => {
     // Execute the query without pagination for grand total calculation
     const [totalResult] = await connection.execute(
       `SELECT * FROM timesheet` +
-        (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
+      (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
       queryParams
     );
 
@@ -2550,7 +2553,7 @@ export const clientSummaryReport = async (req, res) => {
     // Get the total count of records
     const [countResult] = await connection.execute(
       `SELECT COUNT(*) as totalCount FROM timesheet` +
-        (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
+      (whereClause.length > 0 ? ` WHERE ${whereClause.join(" AND ")}` : ""),
       queryParams
     );
     const totalCount = countResult[0].totalCount;
@@ -2814,7 +2817,7 @@ export const getShiftByID = async (req, res) => {
 
 export const notificationSend = async (req, res) => {
   try {
-    const { startDate, endDate } = req.body;
+    const { startDate, endDate , locationIds} = req.body;
 
     // Ensure dates are in a valid format
     if (!startDate || !endDate) {
@@ -2833,8 +2836,55 @@ export const notificationSend = async (req, res) => {
       AND w.timesheetId IS NULL
     `;
 
+    const pushNotificationQuery = `
+      SELECT t.employeeId, t.timesheet_id
+      FROM timesheet t
+      LEFT JOIN whatsapp_notifications w
+      ON t.timesheet_id = w.timesheetId
+      WHERE t.date BETWEEN ? AND ?
+      and t.is_published = 0 and locationId in (?)
+    `;
+
     // Execute the query
     const [results] = await connection.query(query, [startDate, endDate]);
+
+    const [pushNotificationResult] = await connection.query(pushNotificationQuery, [startDate, endDate, locationIds]);
+
+    console.log('pushNotificationResult Count', pushNotificationResult.length);
+
+    for (const { employeeId, timesheet_id } of pushNotificationResult) {
+      if (timesheet_id && employeeId) {
+        const tokenQuery = "SELECT id, fcm_token FROM push_notification WHERE user_id = ?";
+        const [fcmTokens] = await connection.execute(tokenQuery, [employeeId]);
+        const notificationData = NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_ADDED];
+
+        if (fcmTokens.length > 0) {
+          Promise.all(
+            fcmTokens.map(({ fcm_token }) =>
+              sendPushNotification(fcm_token, notificationData.subject, notificationData.body)
+            )
+          );
+
+
+          const notificationId = await sendPushNotificationLogs(
+            employeeId,
+            notificationData.subject,
+            notificationData.body,
+            timesheet_id
+          );
+
+          await Promise.all(
+            fcmTokens.map(({ id }) => deviceNotificationMapping(id, notificationId))
+          );
+
+          const publishQuery = "update timesheet as t set t.is_published=1 where t.timesheet_id=?";
+          await connection.execute(publishQuery, [timesheet_id]);
+
+          console.log('notification sent for the timesheet', timesheet_id);
+        }
+      }
+    }
+
 
     // Prepare data to be inserted
     const insertValues = results.map((row) => [
