@@ -1,3 +1,4 @@
+import { query } from "express";
 import connection from "../index.js";
 
 export const createConversations = async (req, res) => {
@@ -130,7 +131,7 @@ export const getConversations = async (req, res) => {
         `;
 
         // Adjust query parameters based on role
-        const queryParams = userRole === '1' 
+        const queryParams = userRole === '1'
             ? [userRole, currentUserId, currentUserId]  // For admin
             : [userRole, currentUserId, currentUserId, currentUserId]; // For normal users
 
@@ -141,6 +142,32 @@ export const getConversations = async (req, res) => {
         res.status(500).json({ error: "Internal server error", details: err.message });
     }
 };
+
+export const getOneToOneConversations = async (req, res) => {
+    const { receiverId } = req.query;
+    const loggedInUserId = req.user.userId; 
+
+    const query = `
+        SELECT cnv.id as conversation_id, cnv.type, cnv.created_at, u.username AS conversation_name 
+        FROM conversations AS cnv
+        JOIN conversation_participants AS cp1 ON cnv.id = cp1.conversation_id
+        JOIN conversation_participants AS cp2 ON cnv.id = cp2.conversation_id
+        JOIN users AS u ON u.id = cp2.user_id
+        WHERE cnv.type = 'private' 
+        AND cp1.user_id = ? 
+        AND cp2.user_id = ? 
+        AND cp2.user_id != ?;
+    `;
+
+    try {
+        const [rows] = await connection.execute(query, [loggedInUserId, receiverId, loggedInUserId]);
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
 
 export const createMessages = async (req, res) => {
     try {
