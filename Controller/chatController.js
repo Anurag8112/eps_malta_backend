@@ -1,5 +1,6 @@
 import { query } from "express";
 import connection from "../index.js";
+import moment from "moment-timezone";
 
 export const createConversations = async (req, res) => {
     try {
@@ -68,6 +69,7 @@ export const getConversations = async (req, res) => {
         }
 
         const currentUserId = req.user.userId;
+        const userTimezoneOffset = req.headers["x-timezone-offset"] || 0; // Get timezone offset from request
 
         // Fetch the user's role from the database
         const [userRoleResult] = await connection.execute(
@@ -87,7 +89,6 @@ export const getConversations = async (req, res) => {
                 c.type, 
                 c.created_at,
                 CASE 
-                    -- If private chat and admin is NOT a participant, concat all usernames
                     WHEN c.type = 'private' AND ? = 1 AND NOT EXISTS (
                         SELECT 1 
                         FROM conversation_participants cp_admin 
@@ -98,7 +99,6 @@ export const getConversations = async (req, res) => {
                         JOIN conversation_participants cp ON u.id = cp.user_id 
                         WHERE cp.conversation_id = c.id
                     )
-                    -- If private chat and admin is a participant, behave like a normal private chat
                     WHEN c.type = 'private' THEN (
                         SELECT u.username 
                         FROM users u 
@@ -106,7 +106,6 @@ export const getConversations = async (req, res) => {
                         WHERE cp.conversation_id = c.id AND u.id != ?
                         LIMIT 1
                     )
-                    -- If group chat and conversation_name is NULL, concat all usernames
                     WHEN c.type = 'group' AND c.conversation_name IS NULL THEN (
                         SELECT GROUP_CONCAT(u.username ORDER BY u.username SEPARATOR ', ') 
                         FROM users u 
@@ -121,7 +120,21 @@ export const getConversations = async (req, res) => {
                         'username', u.username,
                         'email', u.email
                     )
-                ) AS participants
+                ) AS participants,
+                (
+                    SELECT m.message 
+                    FROM messages m 
+                    WHERE m.conversation_id = c.id 
+                    ORDER BY m.created_at DESC 
+                    LIMIT 1
+                ) AS last_message,
+                (
+                    SELECT m.created_at 
+                    FROM messages m 
+                    WHERE m.conversation_id = c.id 
+                    ORDER BY m.created_at DESC 
+                    LIMIT 1
+                ) AS last_message_time
             FROM conversations c
             JOIN conversation_participants cp ON c.id = cp.conversation_id
             JOIN users u ON cp.user_id = u.id
@@ -130,18 +143,31 @@ export const getConversations = async (req, res) => {
             ORDER BY c.created_at DESC
         `;
 
-        // Adjust query parameters based on role
         const queryParams = userRole === '1'
             ? [userRole, currentUserId, currentUserId]  // For admin
             : [userRole, currentUserId, currentUserId, currentUserId]; // For normal users
 
         const [conversations] = await connection.execute(query, queryParams);
 
-        res.status(200).json(conversations);
+        // Format last message time with time offset
+        const formattedConversations = conversations.map(conversation => {
+            if (conversation.last_message_time) {
+                const serverTime = moment.utc(conversation.last_message_time); // Convert to UTC
+                const localTime = serverTime.utcOffset(userTimezoneOffset); // Adjust based on user's timezone
+                conversation.last_message_time = localTime.fromNow(); // Convert to "2 min ago" format
+            } else {
+                conversation.last_message_time = null;
+            }
+            return conversation;
+        });
+
+        res.status(200).json(formattedConversations);
     } catch (err) {
         res.status(500).json({ error: "Internal server error", details: err.message });
     }
 };
+
+
 
 export const getOneToOneConversations = async (req, res) => {
     const { receiverId } = req.query;
