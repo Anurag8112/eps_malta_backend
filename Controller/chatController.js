@@ -261,7 +261,11 @@ export const createMessages = async (req, res) => {
 
         await connection.commit();
 
-        res.status(201).json({ id: result.insertId, conversation_id, sender_id, message });
+        const fetchQuery= "Select * from messages where id = ?";
+
+        const [fetchResult] = await connection.query(fetchQuery, [result.insertId]);
+
+        res.status(201).json(fetchResult[0]);
     } catch (err) {
         await connection.rollback();
         res.status(500).json({ error: "Internal server error", details: err.message });
