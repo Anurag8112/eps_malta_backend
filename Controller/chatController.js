@@ -20,6 +20,8 @@ export const createConversations = async (req, res) => {
 
         const currentUserId = req.user.userId;
 
+        const otherParticipant = participants.find(id => id !== currentUserId);
+
         // Private conversation validation
         if (type === "private") {
             if (participants.length !== 2) {
@@ -40,7 +42,6 @@ export const createConversations = async (req, res) => {
                 AND cp2.user_id = ? 
                 AND cp2.user_id != ?;
             `;
-            const otherParticipant = participants.find(id => id !== currentUserId);
             const [rows] = await connection.execute(query, [currentUserId, otherParticipant, currentUserId]);
 
             if(rows.length > 0){
@@ -75,6 +76,15 @@ export const createConversations = async (req, res) => {
             "INSERT INTO conversation_participants (conversation_id, user_id) VALUES ?",
             [participantValues]
         );
+
+        if(type == "private"){
+            const conversationNameQuery = "Select username from users where id = ?";
+            const [result] = await connection.query(conversationNameQuery, [otherParticipant]);
+            console.log('result',result);
+            if(!finalConversationName){
+                finalConversationName = result[0].username;
+            }
+        }
 
         res.status(201).json({ conversationId, type, conversationName: finalConversationName, participants });
     } catch (err) {
@@ -213,9 +223,6 @@ export const getOneToOneConversations = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
-
-
 
 export const createMessages = async (req, res) => {
     try {
