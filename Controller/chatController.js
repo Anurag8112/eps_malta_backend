@@ -28,6 +28,24 @@ export const createConversations = async (req, res) => {
             if (!participants.includes(currentUserId)) {
                 return res.status(400).json({ error: "Authenticated user must be one of the participants in a private conversation." });
             }
+
+            const query = `
+                SELECT cnv.id as conversation_id, cnv.type, cnv.created_at, u.username AS conversation_name 
+                FROM conversations AS cnv
+                JOIN conversation_participants AS cp1 ON cnv.id = cp1.conversation_id
+                JOIN conversation_participants AS cp2 ON cnv.id = cp2.conversation_id
+                JOIN users AS u ON u.id = cp2.user_id
+                WHERE cnv.type = 'private' 
+                AND cp1.user_id = ? 
+                AND cp2.user_id = ? 
+                AND cp2.user_id != ?;
+            `;
+            const otherParticipant = participants.find(id => id !== currentUserId);
+            const [rows] = await connection.execute(query, [currentUserId, otherParticipant, currentUserId]);
+
+            if(rows.length > 0){
+                return res.status(400).json({ error: "Conversation already exists." });
+            }
         }
 
         let finalConversationName = conversationName || null;
@@ -176,7 +194,7 @@ export const getOneToOneConversations = async (req, res) => {
     const loggedInUserId = req.user.userId;
 
     const query = `
-        SELECT cnv.id as conversation_id, cnv.type, cnv.created_at, u.username AS conversation_name 
+        SELECT cnv.id AS conversation_id, cnv.type, cnv.created_at, u.username AS conversation_name 
         FROM conversations AS cnv
         JOIN conversation_participants AS cp1 ON cnv.id = cp1.conversation_id
         JOIN conversation_participants AS cp2 ON cnv.id = cp2.conversation_id
@@ -189,11 +207,13 @@ export const getOneToOneConversations = async (req, res) => {
 
     try {
         const [rows] = await connection.execute(query, [loggedInUserId, receiverId, loggedInUserId]);
-        res.json(rows);
+        const conversation = rows.length ? rows[0] : null;
+        res.json(conversation);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
+
 
 
 
