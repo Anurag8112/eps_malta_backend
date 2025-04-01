@@ -76,13 +76,43 @@ export const postFeedComment = async (req, res) => {
     }
 
     try {
-        const { userId } = req.user;
+        const { userId } = req.user; // Get logged-in user ID
         const { comment, feedId } = req.body;
 
-        const query = "INSERT INTO feed_comment (feed_id, user_id, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?);";
-        const [result] = await connection.execute(query, [feedId, userId, comment, new Date(), new Date()]);
+        if (!feedId || !comment) {
+            return res.status(400).json({ message: 'Feed ID and comment are required' });
+        }
 
-        return res.status(201).json({ message: 'Feed comment created successfully', commentId: result.insertId });
+        // Insert comment into the database
+        const insertQuery = `
+            INSERT INTO feed_comment (feed_id, user_id, comment, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?);
+        `;
+        const createdAt = new Date();
+        const [result] = await connection.execute(insertQuery, [feedId, userId, comment, createdAt, createdAt]);
+
+        // Fetch the newly inserted comment along with the commenter's username
+        const selectQuery = `
+            SELECT 
+                fc.id,
+                fc.feed_id,
+                fc.user_id,
+                fc.comment,
+                fc.created_at,
+                fc.updated_at,
+                usr.username AS commented_by
+            FROM feed_comment AS fc
+            JOIN users AS usr ON usr.id = fc.user_id
+            WHERE fc.id = ?;
+        `;
+
+        const [commentRows] = await connection.execute(selectQuery, [result.insertId]);
+
+        if (commentRows.length === 0) {
+            return res.status(500).json({ message: 'Error fetching inserted comment' });
+        }
+
+        return res.status(201).json(commentRows[0]); // Return the newly created comment
     } catch (error) {
         console.error('Error posting feed comment:', error);
         return res.status(500).json({ message: 'Internal server error' });
@@ -197,6 +227,5 @@ export const getFeedComments = async (req, res) => {
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
-
 
 
