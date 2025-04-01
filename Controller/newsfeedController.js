@@ -29,10 +29,41 @@ export const postNewsFeed = async (req, res) => {
         const { userId } = req.user;
         const { content } = req.body;
 
-        const query = "INSERT INTO feeds (user_id, content, created_at) VALUES (?, ?, ?);";
-        const [result] = await connection.execute(query, [userId, content, new Date()]);
+        if (!content) {
+            return res.status(400).json({ message: 'Content is required' });
+        }
 
-        return res.status(201).json({ message: 'Post created successfully', postId: result.insertId });
+        const createdAt = new Date();
+
+        // Insert post into the database
+        const insertQuery = `
+            INSERT INTO feeds (user_id, content, created_at) 
+            VALUES (?, ?, ?);
+        `;
+        const [result] = await connection.execute(insertQuery, [userId, content, createdAt]);
+
+        // Fetch the newly inserted post with username, total comments, total likes, and is_liked
+        const selectQuery = `
+            SELECT 
+                feed.id,
+                feed.content,
+                feed.created_at,
+                usr.username,
+                0 AS total_comments, -- Since it's a new post, comments will be zero
+                0 AS total_likes, -- Since it's a new post, likes will be zero
+                0 AS is_liked -- Since the post was just created, the user hasn't liked it yet
+            FROM feeds AS feed
+            JOIN users AS usr ON usr.id = feed.user_id
+            WHERE feed.id = ?;
+        `;
+
+        const [feedRows] = await connection.execute(selectQuery, [result.insertId]);
+
+        if (feedRows.length === 0) {
+            return res.status(500).json({ message: 'Error fetching inserted post' });
+        }
+
+        return res.status(201).json(feedRows[0]); // Return the newly created post
     } catch (error) {
         console.error('Error posting news feed:', error);
         return res.status(500).json({ message: 'Internal server error' });
