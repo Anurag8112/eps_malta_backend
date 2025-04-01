@@ -39,6 +39,36 @@ export const postNewsFeed = async (req, res) => {
     }
 };
 
+export const likeNewsFeed = async (req, res) => {
+    try {
+        const { userId } = req.user;
+        const { feedId } = req.params;
+
+        // Check if the like already exists
+        const getQuery = "SELECT * FROM feed_likes WHERE user_id = ? AND feed_id = ?;";
+        const [likeResult] = await connection.execute(getQuery, [userId, feedId]);
+
+        if (likeResult.length > 0) {
+            // Unlike (delete) the record
+            const deleteQuery = "DELETE FROM feed_likes WHERE user_id = ? AND feed_id = ?;";
+            await connection.execute(deleteQuery, [userId, feedId]);
+
+            return res.status(200).json({ message: "Feed unliked successfully" });
+        } else {
+            // Like (insert) the record
+            const insertQuery = "INSERT INTO feed_likes (user_id, feed_id, created_at) VALUES (?, ?, ?);";
+            await connection.execute(insertQuery, [userId, feedId, new Date()]);
+
+            return res.status(200).json({ message: "Feed liked successfully" });
+        }
+        
+    } catch (error) {
+        console.error("Error processing like/unlike:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+
 export const postFeedComment = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -59,28 +89,43 @@ export const postFeedComment = async (req, res) => {
     }
 };
 
+//
+
 export const getNewsFeed = async (req, res) => {
     try {
+        const { userId } = req.user; // Get current user ID
+
         const query = `
             SELECT 
-                feed.*,
+                feed.id,
+                feed.content,
+                feed.created_at,
                 usr.username,
-                COUNT(fc.id) AS total_comments,
-                COUNT(fl.id) AS total_likes
+                COUNT(DISTINCT fc.id) AS total_comments,
+                COUNT(DISTINCT fl.id) AS total_likes,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 
+                        FROM feed_likes fl_sub 
+                        WHERE fl_sub.feed_id = feed.id 
+                        AND fl_sub.user_id = ?
+                    ) THEN true 
+                    ELSE false 
+                END AS is_liked
             FROM feeds AS feed
-            JOIN users as usr on usr.id = feed.user_id
+            JOIN users AS usr ON usr.id = feed.user_id
             LEFT JOIN feed_comment AS fc ON feed.id = fc.feed_id
             LEFT JOIN feed_likes AS fl ON feed.id = fl.feed_id
-            GROUP BY feed.id
+            GROUP BY feed.id, usr.username, feed.content, feed.created_at
             ORDER BY feed.created_at DESC;
         `;
-        
-        const [rows] = await connection.execute(query);
+
+        const [rows] = await connection.execute(query, [userId]);
 
         return res.status(200).json({ feeds: rows });
     } catch (error) {
-        console.error('Error fetching news feed:', error);
-        return res.status(500).json({ message: 'Internal server error' });
+        console.error("Error fetching news feed:", error);
+        return res.status(500).json({ message: "Internal server error" });
     }
 };
 
