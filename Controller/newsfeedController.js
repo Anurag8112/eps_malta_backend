@@ -130,21 +130,79 @@ export const getNewsFeed = async (req, res) => {
 };
 
 
+// export const getFeedComments = async (req, res) => {
+//     try {
+//         const { feedId } = req.params;
+
+//         if (!feedId) {
+//             return res.status(400).json({ message: 'Feed ID is required' });
+//         }
+
+//         const query = "SELECT * FROM feed_comment WHERE feed_id = ? ORDER BY created_at DESC;";
+//         const [rows] = await connection.execute(query, [feedId]);
+
+//         return res.status(200).json({ comments: rows });
+//     } catch (error) {
+//         console.error('Error fetching feed comments:', error);
+//         return res.status(500).json({ message: 'Internal server error' });
+//     }
+// };/
+
+
 export const getFeedComments = async (req, res) => {
     try {
         const { feedId } = req.params;
+        const { userId } = req.user;
 
         if (!feedId) {
             return res.status(400).json({ message: 'Feed ID is required' });
         }
 
-        const query = "SELECT * FROM feed_comment WHERE feed_id = ? ORDER BY created_at DESC;";
-        const [rows] = await connection.execute(query, [feedId]);
+        // Query to fetch feed details along with total likes and is_liked state
+        const feedQuery = `
+            SELECT 
+                feed.id,
+                feed.content,
+                feed.created_at,
+                usr.username,
+                COUNT(DISTINCT fc.id) AS total_comments,
+                COUNT(DISTINCT fl.id) AS total_likes,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 
+                        FROM feed_likes fl_sub 
+                        WHERE fl_sub.feed_id = feed.id 
+                        AND fl_sub.user_id = ?
+                    ) THEN 1 ELSE 0 
+                END AS is_liked
+            FROM feeds AS feed
+            JOIN users AS usr ON usr.id = feed.user_id
+            LEFT JOIN feed_comment AS fc ON feed.id = fc.feed_id
+            LEFT JOIN feed_likes AS fl ON feed.id = fl.feed_id
+            WHERE feed.id = ?
+            GROUP BY feed.id, usr.username, feed.content, feed.created_at;
+        `;
 
-        return res.status(200).json({ comments: rows });
+        const [feedRows] = await connection.execute(feedQuery, [userId, feedId]);
+
+        if (feedRows.length === 0) {
+            return res.status(404).json({ message: 'Feed not found' });
+        }
+
+        // Query to fetch comments related to the feed
+        const commentsQuery = `SELECT * FROM feed_comment WHERE feed_id = ? ORDER BY created_at DESC;`;
+        const [commentsRows] = await connection.execute(commentsQuery, [feedId]);
+
+        const feedData = {
+            ...feedRows[0], // Feed details
+            comments: commentsRows // List of comments
+        };
+
+        return res.status(200).json(feedData);
     } catch (error) {
-        console.error('Error fetching feed comments:', error);
+        console.error('Error fetching feed with comments:', error);
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
+
 
