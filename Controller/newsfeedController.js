@@ -61,7 +61,20 @@ export const postFeedComment = async (req, res) => {
 
 export const getNewsFeed = async (req, res) => {
     try {
-        const query = "SELECT * FROM feeds ORDER BY created_at DESC;";
+        const query = `
+            SELECT 
+                feed.*,
+                usr.username,
+                COUNT(fc.id) AS total_comments,
+                COUNT(fl.id) AS total_likes
+            FROM feeds AS feed
+            JOIN users as usr on usr.id = feed.user_id
+            LEFT JOIN feed_comment AS fc ON feed.id = fc.feed_id
+            LEFT JOIN feed_likes AS fl ON feed.id = fl.feed_id
+            GROUP BY feed.id
+            ORDER BY feed.created_at DESC;
+        `;
+        
         const [rows] = await connection.execute(query);
 
         return res.status(200).json({ feeds: rows });
@@ -70,6 +83,7 @@ export const getNewsFeed = async (req, res) => {
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
+
 
 export const getFeedComments = async (req, res) => {
     try {
