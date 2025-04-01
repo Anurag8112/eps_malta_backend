@@ -89,7 +89,6 @@ export const postFeedComment = async (req, res) => {
     }
 };
 
-//
 
 export const getNewsFeed = async (req, res) => {
     try {
@@ -129,30 +128,10 @@ export const getNewsFeed = async (req, res) => {
     }
 };
 
-
-// export const getFeedComments = async (req, res) => {
-//     try {
-//         const { feedId } = req.params;
-
-//         if (!feedId) {
-//             return res.status(400).json({ message: 'Feed ID is required' });
-//         }
-
-//         const query = "SELECT * FROM feed_comment WHERE feed_id = ? ORDER BY created_at DESC;";
-//         const [rows] = await connection.execute(query, [feedId]);
-
-//         return res.status(200).json({ comments: rows });
-//     } catch (error) {
-//         console.error('Error fetching feed comments:', error);
-//         return res.status(500).json({ message: 'Internal server error' });
-//     }
-// };/
-
-
 export const getFeedComments = async (req, res) => {
     try {
         const { feedId } = req.params;
-        const { userId } = req.user;
+        const { userId } = req.user; // Assuming user authentication middleware sets req.user
 
         if (!feedId) {
             return res.status(400).json({ message: 'Feed ID is required' });
@@ -189,13 +168,27 @@ export const getFeedComments = async (req, res) => {
             return res.status(404).json({ message: 'Feed not found' });
         }
 
-        // Query to fetch comments related to the feed
-        const commentsQuery = `SELECT * FROM feed_comment WHERE feed_id = ? ORDER BY created_at DESC;`;
+        // Query to fetch comments along with the username of the commenter
+        const commentsQuery = `
+            SELECT 
+                fc.id,
+                fc.feed_id,
+                fc.user_id,
+                fc.comment,
+                fc.created_at,
+                fc.updated_at,
+                usr.username AS commented_by
+            FROM feed_comment AS fc
+            JOIN users AS usr ON usr.id = fc.user_id
+            WHERE fc.feed_id = ?
+            ORDER BY fc.created_at DESC;
+        `;
+
         const [commentsRows] = await connection.execute(commentsQuery, [feedId]);
 
         const feedData = {
             ...feedRows[0], // Feed details
-            comments: commentsRows // List of comments
+            comments: commentsRows // List of comments with usernames
         };
 
         return res.status(200).json(feedData);
@@ -204,5 +197,6 @@ export const getFeedComments = async (req, res) => {
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
+
 
 
