@@ -80,7 +80,7 @@ export const getAnnouncedUsers = async (req, res) => {
 
         const [results] = await connection.execute(query, [announcementId]);
 
-        return res.status(200).json({ announcedUsers: results });
+        return res.status(200).json( results );
     } catch (error) {
         console.error("Error fetching announced users:", error);
         return res.status(500).json({ message: "Internal server error." });
