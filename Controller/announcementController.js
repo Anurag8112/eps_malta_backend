@@ -44,18 +44,45 @@ export const getAnnouncements = async (req, res) => {
         }
         
         const query = `
-            SELECT a.id, a.title, a.content, a.owner_id, a.created_at, a.updated_at 
+            SELECT a.id, a.title, a.content, a.owner_id, u.username AS owner_name, a.created_at, a.updated_at,
+                   (SELECT COUNT(*) FROM announcement_users_mapping am WHERE am.announcement_id = a.id) AS total_announced_users
             FROM announcements a
             INNER JOIN announcement_users_mapping m ON a.id = m.announcement_id
+            INNER JOIN users u ON a.owner_id = u.id
             WHERE m.user_id = ?
             ORDER BY a.created_at DESC;
         `;
-        
+
         const [results] = await connection.execute(query, [userId]);
         
         return res.status(200).json(results);
     } catch (error) {
         console.error("Error fetching announcements:", error);
+        return res.status(500).json({ message: "Internal server error." });
+    }
+};
+
+export const getAnnouncedUsers = async (req, res) => {
+    try {
+        const { announcementId } = req.params;
+
+        if (!announcementId) {
+            return res.status(400).json({ message: "Announcement ID is required." });
+        }
+
+        // Query to fetch all users for a given announcement ID
+        const query = `
+            SELECT u.id, u.username, u.email 
+            FROM users u
+            INNER JOIN announcement_users_mapping m ON u.id = m.user_id
+            WHERE m.announcement_id = ?;
+        `;
+
+        const [results] = await connection.execute(query, [announcementId]);
+
+        return res.status(200).json({ announcedUsers: results });
+    } catch (error) {
+        console.error("Error fetching announced users:", error);
         return res.status(500).json({ message: "Internal server error." });
     }
 };
