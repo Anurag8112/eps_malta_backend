@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { sendMail } from "../Service/SendMail.js";
 import bcrypt from "bcrypt";
+import { getAttachmentUrlById } from "./uploadController.js";
 
 dotenv.config();
 
@@ -336,18 +337,31 @@ export const userView = async (req, res) => {
 };
 
 // GET USER PROFILE DATA
+
 export const getUserProfileData = async (req, res) => {
   try {
     const userId = req.params.userId;
 
     const query =
-      "SELECT username, email, mobile, role FROM users WHERE id = ?";
+      "SELECT username, email, mobile, role, profile_picture_id FROM users WHERE id = ?";
     const [results] = await connection.query(query, [userId]);
 
     if (results.length > 0) {
       const userData = results[0];
-
       userData.userId = userId;
+
+      // If user has profile picture, get its public URL
+      if (userData.profile_picture_id) {
+        try {
+          const profilePicUrl = await getAttachmentUrlById(userData.profile_picture_id);
+          userData.profile_picture_url = profilePicUrl;
+        } catch (err) {
+          console.warn("Profile picture not found:", err.message);
+          userData.profile_picture_url = null;
+        }
+      } else {
+        userData.profile_picture_url = null;
+      }
 
       res.status(200).json(userData);
     } else {
@@ -358,6 +372,7 @@ export const getUserProfileData = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 export const getUserPushProfileData = async (req, res) => {
   try {
@@ -415,18 +430,21 @@ export const userEdit = async (req, res) => {
       }
     });
 
+    // Include profile_picture_id if provided
+    if (updates.profile_picture_id) {
+      updateFields.push(`profile_picture_id = ?`);
+      updateValues.push(updates.profile_picture_id);
+    }
+
     if (updateFields.length === 0) {
       return res.status(400).json({ error: "No valid fields to update" });
     }
 
-    // Update user data in the users table
-    const updateQuery = `UPDATE users SET ${updateFields.join(
-      ","
-    )} WHERE id = ?`;
+    const updateQuery = `UPDATE users SET ${updateFields.join(",")} WHERE id = ?`;
     const queryValues = [...updateValues, id];
     await connection.query(updateQuery, queryValues);
 
-    // Update or delete qualifications data in the user_qualification table
+    // Qualifications update
     if (updates.qualifications && Array.isArray(updates.qualifications)) {
       const userQualificationsQuery =
         "SELECT * FROM user_qualifications WHERE employee_id = ?";
@@ -436,22 +454,19 @@ export const userEdit = async (req, res) => {
       );
 
       const receivedQualificationsIds = updates.qualifications.map(
-        (qualification) => qualification.qualification_id
+        (q) => q.qualification_id
       );
       const existingQualificationsIds = existingQualifications.map(
-        (qualification) => qualification.qualification_id
+        (q) => q.qualification_id
       );
 
       const qualificationsToAdd = updates.qualifications.filter(
-        (qualification) =>
-          !existingQualificationsIds.includes(qualification.qualification_id)
+        (q) => !existingQualificationsIds.includes(q.qualification_id)
       );
       const qualificationsToDelete = existingQualifications.filter(
-        (qualification) =>
-          !receivedQualificationsIds.includes(qualification.qualification_id)
+        (q) => !receivedQualificationsIds.includes(q.qualification_id)
       );
 
-      // Insert new qualifications
       for (const qualification of qualificationsToAdd) {
         await connection.query(
           "INSERT INTO user_qualifications (employee_id, qualification_id) VALUES (?, ?)",
@@ -459,7 +474,6 @@ export const userEdit = async (req, res) => {
         );
       }
 
-      // Delete qualifications not present in the received array
       for (const qualification of qualificationsToDelete) {
         await connection.query(
           "DELETE FROM user_qualifications WHERE employee_id = ? AND qualification_id = ?",
@@ -468,22 +482,21 @@ export const userEdit = async (req, res) => {
       }
     }
 
-    // Update or delete skills data in the user_skills table
+    // Skills update
     if (updates.skills && Array.isArray(updates.skills)) {
       const userSkillsQuery = "SELECT * FROM user_skills WHERE employee_id = ?";
       const [existingSkills] = await connection.query(userSkillsQuery, [id]);
 
-      const receivedSkillsIds = updates.skills.map((skill) => skill.skill_id);
-      const existingSkillsIds = existingSkills.map((skill) => skill.skill_id);
+      const receivedSkillsIds = updates.skills.map((s) => s.skill_id);
+      const existingSkillsIds = existingSkills.map((s) => s.skill_id);
 
       const skillsToAdd = updates.skills.filter(
-        (skill) => !existingSkillsIds.includes(skill.skill_id)
+        (s) => !existingSkillsIds.includes(s.skill_id)
       );
       const skillsToDelete = existingSkills.filter(
-        (skill) => !receivedSkillsIds.includes(skill.skill_id)
+        (s) => !receivedSkillsIds.includes(s.skill_id)
       );
 
-      // Insert new skills
       for (const skill of skillsToAdd) {
         await connection.query(
           "INSERT INTO user_skills (employee_id, skill_id) VALUES (?, ?)",
@@ -491,7 +504,6 @@ export const userEdit = async (req, res) => {
         );
       }
 
-      // Delete skills not present in the received array
       for (const skill of skillsToDelete) {
         await connection.query(
           "DELETE FROM user_skills WHERE employee_id = ? AND skill_id = ?",
@@ -500,7 +512,7 @@ export const userEdit = async (req, res) => {
       }
     }
 
-    // Update or delete language data in the user_languages table
+    // Languages update
     if (updates.languages && Array.isArray(updates.languages)) {
       const userLanguagesQuery =
         "SELECT * FROM user_languages WHERE employee_id = ?";
@@ -508,21 +520,16 @@ export const userEdit = async (req, res) => {
         id,
       ]);
 
-      const receivedLanguageIds = updates.languages.map(
-        (language) => language.language_id
-      );
-      const existingLanguageIds = existingLanguages.map(
-        (language) => language.language_id
-      );
+      const receivedLanguageIds = updates.languages.map((l) => l.language_id);
+      const existingLanguageIds = existingLanguages.map((l) => l.language_id);
 
       const languagesToAdd = updates.languages.filter(
-        (language) => !existingLanguageIds.includes(language.language_id)
+        (l) => !existingLanguageIds.includes(l.language_id)
       );
       const languagesToDelete = existingLanguages.filter(
-        (language) => !receivedLanguageIds.includes(language.language_id)
+        (l) => !receivedLanguageIds.includes(l.language_id)
       );
 
-      // Insert new languages
       for (const language of languagesToAdd) {
         await connection.query(
           "INSERT INTO user_languages (employee_id, language_id) VALUES (?, ?)",
@@ -530,7 +537,6 @@ export const userEdit = async (req, res) => {
         );
       }
 
-      // Delete languages not present in the received array
       for (const language of languagesToDelete) {
         await connection.query(
           "DELETE FROM user_languages WHERE employee_id = ? AND language_id = ?",
@@ -545,6 +551,7 @@ export const userEdit = async (req, res) => {
     res.status(500).json({ error: "Failed to update user" });
   }
 };
+
 
 // User Delete API
 export const userDelete = async (req, res) => {
