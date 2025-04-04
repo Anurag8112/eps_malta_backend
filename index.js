@@ -24,6 +24,7 @@ import feedbackRoute from "./Router/feedbackRoute.js"
 import chatRoute from "./Router/chatRoute.js"
 import newsfeedRoute from "./Router/newsfeedRoute.js"
 import announcementRoute from "./Router/announcementRoute.js"
+import uploadRoute from "./Router/uploadRoute.js"
 import oas from "express-oas-generator";
 import cors from "cors";
 import { authenticateJWT } from "./Middleware/authenticateJWT.js";
@@ -74,7 +75,8 @@ app.use("/push-notification", authenticateJWT, pushNotificationRoute);
 app.use("/feedback", authenticateJWT, feedbackRoute);
 app.use("/chat", authenticateJWT, chatRoute);
 app.use("/newsfeed", authenticateJWT, newsfeedRoute);
-app.use("/announcement", authenticateJWT,announcementRoute);
+app.use("/announcement", authenticateJWT, announcementRoute);
+app.use("/upload", authenticateJWT, uploadRoute);
 
 // License Tracker
 app.use("/license", authenticateJWT, licenseTypeRoute);
