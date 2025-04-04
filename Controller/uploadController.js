@@ -65,7 +65,7 @@ export const getAttachmentUrlById = async (id) => {
     }
 
     const fileName = rows[0].file_name;
-    const baseUrl = process.env.APP_PATH || "http://localhost:8000";
+    const baseUrl = "http://174.138.57.202:8000";
     const fileUrl = `${baseUrl}/files/${fileName}`;
     return fileUrl;
 };
