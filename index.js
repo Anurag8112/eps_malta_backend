@@ -29,8 +29,8 @@ import oas from "express-oas-generator";
 import cors from "cors";
 import { authenticateJWT } from "./Middleware/authenticateJWT.js";
 import { connectToDatabase } from "./db/connection.js";
-import { emailScheduler } from "./Scheduler/emailScheduler.js";
-import { clientEmailScheduler } from "./Scheduler/emailScheduler.js";
+import path from "path";
+
 
 const app = express();
 const PORT = 8000;
@@ -77,6 +77,7 @@ app.use("/chat", authenticateJWT, chatRoute);
 app.use("/newsfeed", authenticateJWT, newsfeedRoute);
 app.use("/announcement", authenticateJWT, announcementRoute);
 app.use("/upload", authenticateJWT, uploadRoute);
+app.use("/attachment", express.static(path.resolve("uploads/attachments")));
 
 // License Tracker
 app.use("/license", authenticateJWT, licenseTypeRoute);

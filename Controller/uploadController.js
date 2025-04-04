@@ -53,3 +53,20 @@ export const uploadAttachment = async (req, res) => {
         }
     });
 };
+
+export const getAttachmentUrlById = async (id) => {
+    const [rows] = await connection.execute(
+        "SELECT file_name FROM attachments WHERE id = ?",
+        [id]
+    );
+
+    if (rows.length === 0) {
+        throw new Error("File not found");
+    }
+
+    const fileName = rows[0].file_name;
+    const baseUrl = process.env.APP_PATH || "http://localhost:8000";
+    const fileUrl = `${baseUrl}/files/${fileName}`;
+    return fileUrl;
+};
+
