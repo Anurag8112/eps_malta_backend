@@ -66,7 +66,7 @@ export const getAttachmentUrlById = async (id) => {
 
     const fileName = rows[0].file_name;
     const baseUrl = "http://174.138.57.202:8000";
-    const fileUrl = `${baseUrl}/files/${fileName}`;
+    const fileUrl = `${baseUrl}/upload/attachments/${fileName}`;
     return fileUrl;
 };
 
