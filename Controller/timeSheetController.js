@@ -12,6 +12,7 @@ import { sendMail } from "../Service/SendMail.js";
 import { whatsappScheduler } from "../Scheduler/whatsappScheduler.js";
 import { sendPushNotification } from "../Service/notificationService.js";
 import { ENUM_NOTIFICATION_TYPE, NOTIFICATION_MESSAGE } from "../constants/app.contsants.js";
+import { getAttachmentUrlById } from './uploadController.js';
 
 dotenv.config();
 
@@ -2791,27 +2792,58 @@ export const logActionView = async (req, res) => {
   }
 };
 
+
 export const getShiftByID = async (req, res) => {
   const { timesheetId } = req.params;
   try {
     const query = `
-    SELECT 
-      *
-    FROM 
-      timesheet as timesheet
-    JOIN timesheet_log as tsl on timesheet.timesheet_id = tsl.timesheetId
-    JOIN events as evt on evt.id = timesheet.eventID
-    JOIN users as usr on usr.id = timesheet.employeeId
-    JOIN location as loc on loc.id = timesheet.locationId
-    WHERE timesheet.timesheet_id = ?`;
+      SELECT 
+        timesheet.*, 
+        tsl.*, 
+        evt.*, 
+        usr.*, 
+        loc.*,
+        usr.profile_picture_id
+      FROM 
+        timesheet as timesheet
+      JOIN 
+        timesheet_log as tsl ON timesheet.timesheet_id = tsl.timesheetId
+      JOIN 
+        events as evt ON evt.id = timesheet.eventID
+      JOIN 
+        users as usr ON usr.id = timesheet.employeeId
+      JOIN 
+        location as loc ON loc.id = timesheet.locationId
+      WHERE 
+        timesheet.timesheet_id = ?`;
 
     const [result] = await connection.query(query, [timesheetId]);
-    res.status(200).json(result);
+
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Timesheet not found" });
+    }
+
+    const data = result[0];
+
+    // Add profile picture URL
+    if (data.profile_picture_id) {
+      try {
+        data.profile_picture_url = await getAttachmentUrlById(data.profile_picture_id);
+      } catch (err) {
+        console.warn("Failed to fetch profile picture URL:", err);
+        data.profile_picture_url = null;
+      }
+    } else {
+      data.profile_picture_url = null;
+    }
+
+    res.status(200).json(data);
   } catch (error) {
     console.error("Error retrieving log:", error);
     res.status(500).json({ error: "Failed to retrieve log" });
   }
 };
+
 
 // Schedule calendar ----------------------------------------------------------------------------------------
 
