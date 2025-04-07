@@ -246,7 +246,7 @@ export const userView = async (req, res) => {
         user_languages ul ON u.id = ul.employee_id
       LEFT JOIN 
         languages l ON ul.language_id = l.id
-      WHERE 1=1`; // Initial WHERE clause to always be true
+      WHERE 1=1`;
 
     const { qualification, skill, language } = req.query;
 
@@ -277,9 +277,10 @@ export const userView = async (req, res) => {
     const [rows] = await connection.query(query);
 
     const usersMap = new Map();
-    rows.forEach(
-      ({
+    for (const row of rows) {
+      const {
         id,
+        profile_picture_id,
         qualification_id,
         qualification_name,
         skill_id,
@@ -287,38 +288,52 @@ export const userView = async (req, res) => {
         language_id,
         language_name,
         ...userData
-      }) => {
-        const user = usersMap.get(id) || {
-          id: id,
-          ...userData,
-          qualifications: [],
-          skills: [],
-          languages: [],
-        };
-        if (
-          qualification_id &&
-          !user.qualifications.some((q) => q.value === qualification_id)
-        ) {
-          user.qualifications.push({
-            value: qualification_id,
-            label: qualification_name,
-          });
-        }
-        if (skill_id && !user.skills.some((s) => s.value === skill_id)) {
-          user.skills.push({ value: skill_id, label: skill_name });
-        }
-        if (
-          language_id &&
-          !user.languages.some((l) => l.value === language_id)
-        ) {
-          user.languages.push({
-            value: language_id,
-            label: language_name,
-          });
-        }
-        usersMap.set(id, user);
+      } = row;
+
+      const user = usersMap.get(id) || {
+        id,
+        ...userData,
+        qualifications: [],
+        skills: [],
+        languages: [],
+        profile_picture_url: null,
+      };
+
+      if (
+        qualification_id &&
+        !user.qualifications.some((q) => q.value === qualification_id)
+      ) {
+        user.qualifications.push({
+          value: qualification_id,
+          label: qualification_name,
+        });
       }
-    );
+
+      if (skill_id && !user.skills.some((s) => s.value === skill_id)) {
+        user.skills.push({ value: skill_id, label: skill_name });
+      }
+
+      if (
+        language_id &&
+        !user.languages.some((l) => l.value === language_id)
+      ) {
+        user.languages.push({
+          value: language_id,
+          label: language_name,
+        });
+      }
+
+      // Attach profile picture URL if not already attached
+      if (!user.profile_picture_url && profile_picture_id) {
+        try {
+          user.profile_picture_url = await getAttachmentUrlById(profile_picture_id);
+        } catch (e) {
+          user.profile_picture_url = null;
+        }
+      }
+
+      usersMap.set(id, user);
+    }
 
     const users = Array.from(usersMap.values());
 
