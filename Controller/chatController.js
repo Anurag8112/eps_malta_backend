@@ -3,6 +3,7 @@ import connection from "../index.js";
 import moment from "moment-timezone";
 import { sendPushNotification } from "../Service/notificationService.js";
 import { NOTIFICATION_MESSAGE } from "../constants/app.contsants.js";
+import { getAttachmentUrlById } from "./uploadController.js"
 
 export const createConversations = async (req, res) => {
     try {
@@ -226,7 +227,7 @@ export const getOneToOneConversations = async (req, res) => {
 
 export const createMessages = async (req, res) => {
     try {
-        const { conversation_id, sender_id, message } = req.body;
+        const { conversation_id, sender_id, message , attachment_id} = req.body;
 
         if (!conversation_id || !sender_id || !message) {
             return res.status(400).json({ error: "conversation_id, sender_id, and message are required." });
@@ -236,9 +237,9 @@ export const createMessages = async (req, res) => {
 
         // Insert message into database
         const insertQuery = `
-          INSERT INTO messages (conversation_id, sender_id, message, is_read, created_at) 
-          VALUES (?, ?, ?, false, NOW())`;
-        const values = [conversation_id, sender_id, message];
+          INSERT INTO messages (conversation_id, sender_id, message,attachment_id, is_read, created_at) 
+          VALUES (?, ?, ?,?, false, NOW())`;
+        const values = [conversation_id, sender_id, message,attachment_id];
 
         const [result] = await connection.execute(insertQuery, values);
 
@@ -272,7 +273,6 @@ export const createMessages = async (req, res) => {
     }
 };
 
-
 export const getMessages = async (req, res) => {
     try {
         const { conversation_id } = req.params;
@@ -281,8 +281,26 @@ export const getMessages = async (req, res) => {
         const query = `SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC`;
         const [messages] = await connection.execute(query, [conversation_id]);
 
-        res.json(messages);
+        // Add fileUrl if attachment_id exists
+        const updatedMessages = await Promise.all(
+            messages.map(async (message) => {
+                if (message.attachment_id) {
+                    try {
+                        const fileUrl = await getAttachmentUrlById(message.attachment_id);
+                        return { ...message, fileUrl };
+                    } catch (err) {
+                        // If file not found, just skip the URL
+                        return { ...message, fileUrl: null };
+                    }
+                } else {
+                    return { ...message, fileUrl: null };
+                }
+            })
+        );
+
+        res.json(updatedMessages);
     } catch (err) {
         res.status(500).json({ error: "Internal server error", details: err.message });
     }
-}
+};
+

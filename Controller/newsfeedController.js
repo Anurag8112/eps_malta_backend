@@ -1,5 +1,6 @@
 import { body, validationResult } from 'express-validator';
 import connection from "../index.js";
+import { getAttachmentUrlById } from "./uploadController.js"; 
 
 export const validateRequests = {
     postNewsFeed: [
@@ -27,7 +28,7 @@ export const postNewsFeed = async (req, res) => {
 
     try {
         const { userId } = req.user;
-        const { content } = req.body;
+        const { content, attachment_id } = req.body;
 
         if (!content) {
             return res.status(400).json({ message: 'Content is required' });
@@ -37,16 +38,17 @@ export const postNewsFeed = async (req, res) => {
 
         // Insert post into the database
         const insertQuery = `
-            INSERT INTO feeds (user_id, content, created_at) 
-            VALUES (?, ?, ?);
+            INSERT INTO feeds (user_id, content,attachment_id, created_at) 
+            VALUES (?, ?, ?, ?);
         `;
-        const [result] = await connection.execute(insertQuery, [userId, content, createdAt]);
+        const [result] = await connection.execute(insertQuery, [userId, content, attachment_id, createdAt]);
 
         // Fetch the newly inserted post with username, total comments, total likes, and is_liked
         const selectQuery = `
             SELECT 
                 feed.id,
                 feed.content,
+                feed.attachment_id,
                 feed.created_at,
                 usr.username,
                 0 AS total_comments, -- Since it's a new post, comments will be zero
@@ -92,7 +94,7 @@ export const likeNewsFeed = async (req, res) => {
 
             return res.status(200).json({ message: "Feed liked successfully" });
         }
-        
+
     } catch (error) {
         console.error("Error processing like/unlike:", error);
         return res.status(500).json({ message: "Internal server error" });
@@ -150,16 +152,16 @@ export const postFeedComment = async (req, res) => {
     }
 };
 
-
 export const getNewsFeed = async (req, res) => {
     try {
-        const { userId } = req.user; // Get current user ID
+        const { userId } = req.user;
 
         const query = `
             SELECT 
                 feed.id,
                 feed.content,
                 feed.created_at,
+                feed.attachment_id,
                 usr.username,
                 COUNT(DISTINCT fc.id) AS total_comments,
                 COUNT(DISTINCT fl.id) AS total_likes,
@@ -176,13 +178,29 @@ export const getNewsFeed = async (req, res) => {
             JOIN users AS usr ON usr.id = feed.user_id
             LEFT JOIN feed_comment AS fc ON feed.id = fc.feed_id
             LEFT JOIN feed_likes AS fl ON feed.id = fl.feed_id
-            GROUP BY feed.id, usr.username, feed.content, feed.created_at
+            GROUP BY feed.id, usr.username, feed.content, feed.created_at, feed.attachment_id
             ORDER BY feed.created_at DESC;
         `;
 
         const [rows] = await connection.execute(query, [userId]);
 
-        return res.status(200).json({ feeds: rows });
+        // Add fileUrl if attachment_id exists
+        const updatedFeeds = await Promise.all(
+            rows.map(async (feed) => {
+                if (feed.attachment_id) {
+                    try {
+                        const fileUrl = await getAttachmentUrlById(feed.attachment_id);
+                        return { ...feed, fileUrl };
+                    } catch (err) {
+                        return { ...feed, fileUrl: null };
+                    }
+                } else {
+                    return { ...feed, fileUrl: null };
+                }
+            })
+        );
+
+        return res.status(200).json({ feeds: updatedFeeds });
     } catch (error) {
         console.error("Error fetching news feed:", error);
         return res.status(500).json({ message: "Internal server error" });
@@ -192,18 +210,19 @@ export const getNewsFeed = async (req, res) => {
 export const getFeedComments = async (req, res) => {
     try {
         const { feedId } = req.params;
-        const { userId } = req.user; // Assuming user authentication middleware sets req.user
+        const { userId } = req.user;
 
         if (!feedId) {
             return res.status(400).json({ message: 'Feed ID is required' });
         }
 
-        // Query to fetch feed details along with total likes and is_liked state
+        // Fetch feed details including attachment_id
         const feedQuery = `
             SELECT 
                 feed.id,
                 feed.content,
                 feed.created_at,
+                feed.attachment_id,
                 usr.username,
                 COUNT(DISTINCT fc.id) AS total_comments,
                 COUNT(DISTINCT fl.id) AS total_likes,
@@ -220,7 +239,7 @@ export const getFeedComments = async (req, res) => {
             LEFT JOIN feed_comment AS fc ON feed.id = fc.feed_id
             LEFT JOIN feed_likes AS fl ON feed.id = fl.feed_id
             WHERE feed.id = ?
-            GROUP BY feed.id, usr.username, feed.content, feed.created_at;
+            GROUP BY feed.id, usr.username, feed.content, feed.created_at, feed.attachment_id;
         `;
 
         const [feedRows] = await connection.execute(feedQuery, [userId, feedId]);
@@ -229,7 +248,21 @@ export const getFeedComments = async (req, res) => {
             return res.status(404).json({ message: 'Feed not found' });
         }
 
-        // Query to fetch comments along with the username of the commenter
+        let feedData = feedRows[0];
+
+        // Add fileUrl if attachment_id exists
+        if (feedData.attachment_id) {
+            try {
+                const fileUrl = await getAttachmentUrlById(feedData.attachment_id);
+                feedData.fileUrl = fileUrl;
+            } catch (err) {
+                feedData.fileUrl = null;
+            }
+        } else {
+            feedData.fileUrl = null;
+        }
+
+        // Fetch comments
         const commentsQuery = `
             SELECT 
                 fc.id,
@@ -247,9 +280,9 @@ export const getFeedComments = async (req, res) => {
 
         const [commentsRows] = await connection.execute(commentsQuery, [feedId]);
 
-        const feedData = {
-            ...feedRows[0], // Feed details
-            comments: commentsRows // List of comments with usernames
+        feedData = {
+            ...feedData,
+            comments: commentsRows
         };
 
         return res.status(200).json(feedData);
