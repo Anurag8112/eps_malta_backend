@@ -163,6 +163,7 @@ export const getNewsFeed = async (req, res) => {
                 feed.created_at,
                 feed.attachment_id,
                 usr.username,
+                usr.profile_picture_id,
                 COUNT(DISTINCT fc.id) AS total_comments,
                 COUNT(DISTINCT fl.id) AS total_likes,
                 CASE 
@@ -178,25 +179,38 @@ export const getNewsFeed = async (req, res) => {
             JOIN users AS usr ON usr.id = feed.user_id
             LEFT JOIN feed_comment AS fc ON feed.id = fc.feed_id
             LEFT JOIN feed_likes AS fl ON feed.id = fl.feed_id
-            GROUP BY feed.id, usr.username, feed.content, feed.created_at, feed.attachment_id
+            GROUP BY feed.id, usr.username, usr.profile_picture_id, feed.content, feed.created_at, feed.attachment_id
             ORDER BY feed.created_at DESC;
         `;
 
         const [rows] = await connection.execute(query, [userId]);
 
-        // Add fileUrl if attachment_id exists
         const updatedFeeds = await Promise.all(
             rows.map(async (feed) => {
+                let fileUrl = null;
+                let profilePictureUrl = null;
+
                 if (feed.attachment_id) {
                     try {
-                        const fileUrl = await getAttachmentUrlById(feed.attachment_id);
-                        return { ...feed, fileUrl };
-                    } catch (err) {
-                        return { ...feed, fileUrl: null };
+                        fileUrl = await getAttachmentUrlById(feed.attachment_id);
+                    } catch {
+                        fileUrl = null;
                     }
-                } else {
-                    return { ...feed, fileUrl: null };
                 }
+
+                if (feed.profile_picture_id) {
+                    try {
+                        profilePictureUrl = await getAttachmentUrlById(feed.profile_picture_id);
+                    } catch {
+                        profilePictureUrl = null;
+                    }
+                }
+
+                return {
+                    ...feed,
+                    fileUrl,
+                    profilePictureUrl,
+                };
             })
         );
 
@@ -216,7 +230,7 @@ export const getFeedComments = async (req, res) => {
             return res.status(400).json({ message: 'Feed ID is required' });
         }
 
-        // Fetch feed details including attachment_id
+        // Fetch feed details including attachment_id and profile_picture_id
         const feedQuery = `
             SELECT 
                 feed.id,
@@ -224,6 +238,7 @@ export const getFeedComments = async (req, res) => {
                 feed.created_at,
                 feed.attachment_id,
                 usr.username,
+                usr.profile_picture_id,
                 COUNT(DISTINCT fc.id) AS total_comments,
                 COUNT(DISTINCT fl.id) AS total_likes,
                 CASE 
@@ -239,7 +254,7 @@ export const getFeedComments = async (req, res) => {
             LEFT JOIN feed_comment AS fc ON feed.id = fc.feed_id
             LEFT JOIN feed_likes AS fl ON feed.id = fl.feed_id
             WHERE feed.id = ?
-            GROUP BY feed.id, usr.username, feed.content, feed.created_at, feed.attachment_id;
+            GROUP BY feed.id, usr.username, feed.content, feed.created_at, feed.attachment_id, usr.profile_picture_id;
         `;
 
         const [feedRows] = await connection.execute(feedQuery, [userId, feedId]);
@@ -255,14 +270,26 @@ export const getFeedComments = async (req, res) => {
             try {
                 const fileUrl = await getAttachmentUrlById(feedData.attachment_id);
                 feedData.fileUrl = fileUrl;
-            } catch (err) {
+            } catch {
                 feedData.fileUrl = null;
             }
         } else {
             feedData.fileUrl = null;
         }
 
-        // Fetch comments
+        // Add profile picture URL
+        if (feedData.profile_picture_id) {
+            try {
+                const profilePicUrl = await getAttachmentUrlById(feedData.profile_picture_id);
+                feedData.profilePictureUrl = profilePicUrl;
+            } catch {
+                feedData.profilePictureUrl = null;
+            }
+        } else {
+            feedData.profilePictureUrl = null;
+        }
+
+        // Fetch comments with profile_picture_id
         const commentsQuery = `
             SELECT 
                 fc.id,
@@ -271,7 +298,8 @@ export const getFeedComments = async (req, res) => {
                 fc.comment,
                 fc.created_at,
                 fc.updated_at,
-                usr.username AS commented_by
+                usr.username AS commented_by,
+                usr.profile_picture_id
             FROM feed_comment AS fc
             JOIN users AS usr ON usr.id = fc.user_id
             WHERE fc.feed_id = ?
@@ -280,9 +308,25 @@ export const getFeedComments = async (req, res) => {
 
         const [commentsRows] = await connection.execute(commentsQuery, [feedId]);
 
+        // Add profile picture URLs to comments
+        const commentsWithProfilePics = await Promise.all(commentsRows.map(async (comment) => {
+            let profilePicUrl = null;
+            if (comment.profile_picture_id) {
+                try {
+                    profilePicUrl = await getAttachmentUrlById(comment.profile_picture_id);
+                } catch {
+                    profilePicUrl = null;
+                }
+            }
+            return {
+                ...comment,
+                profilePictureUrl: profilePicUrl,
+            };
+        }));
+
         feedData = {
             ...feedData,
-            comments: commentsRows
+            comments: commentsWithProfilePics,
         };
 
         return res.status(200).json(feedData);
@@ -291,5 +335,6 @@ export const getFeedComments = async (req, res) => {
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
+
 
 
