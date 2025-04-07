@@ -2809,7 +2809,7 @@ export const getShiftByID = async (req, res) => {
       JOIN 
         timesheet_log as tsl ON timesheet.timesheet_id = tsl.timesheetId
       JOIN 
-        events as evt ON evt.id = timesheet.eventID
+        events as evt ON evt.id = timesheet.eventId
       JOIN 
         users as usr ON usr.id = timesheet.employeeId
       JOIN 
@@ -2836,6 +2836,53 @@ export const getShiftByID = async (req, res) => {
     } else {
       data.profile_picture_url = null;
     }
+
+    // Validate date
+    const shiftDate = new Date(data.date);
+    if (isNaN(shiftDate.getTime())) {
+      return res.status(400).json({ error: "Invalid date in timesheet" });
+    }
+
+    // Calculate start and end of current week (Sunday - Saturday)
+    const startOfWeek = new Date(shiftDate);
+    startOfWeek.setDate(shiftDate.getDate() - shiftDate.getDay());
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+    const repeatQuery = `
+      SELECT 
+        date
+      FROM 
+        timesheet
+      WHERE 
+        locationId = ? AND 
+        eventId = ? AND 
+        taskId = ? AND 
+        employeeId = ? AND 
+        clientId = ? AND
+        startTime = ? AND 
+        endTime = ? AND
+        date BETWEEN ? AND ?`;
+
+    const [repeatResults] = await connection.query(repeatQuery, [
+      data.locationId,
+      data.eventId,
+      data.taskId,
+      data.employeeId,
+      data.clientId,
+      data.startTime,
+      data.endTime,
+      startOfWeek.toISOString().split('T')[0],
+      endOfWeek.toISOString().split('T')[0]
+    ]);
+
+    // Convert to unique day names
+    const dayNames = repeatResults.map(row => {
+      const d = new Date(row.date);
+      return d.toLocaleDateString('en-US', { weekday: 'long' });
+    });
+
+    data.repeat = [...new Set(dayNames)];
 
     res.status(200).json(data);
   } catch (error) {
