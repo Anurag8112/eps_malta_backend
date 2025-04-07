@@ -93,6 +93,112 @@ export const createConversations = async (req, res) => {
     }
 };
 
+// export const getConversations = async (req, res) => {
+//     try {
+//         if (!req.user) {
+//             return res.status(401).json({ error: "Unauthorized. User authentication required." });
+//         }
+
+//         const currentUserId = req.user.userId;
+//         const userTimezoneOffset = req.headers["x-timezone-offset"] || 0; // Get timezone offset from request
+
+//         // Fetch the user's role from the database
+//         const [userRoleResult] = await connection.execute(
+//             "SELECT role FROM users WHERE id = ?",
+//             [currentUserId]
+//         );
+
+//         if (userRoleResult.length === 0) {
+//             return res.status(404).json({ error: "User not found." });
+//         }
+
+//         const userRole = userRoleResult[0].role;
+
+//         const query = `
+//             SELECT 
+//                 c.id AS conversation_id, 
+//                 c.type, 
+//                 c.created_at,
+//                 u.profile_picture_id,
+//                 CASE 
+//                     WHEN c.type = 'private' AND ? = 1 AND NOT EXISTS (
+//                         SELECT 1 
+//                         FROM conversation_participants cp_admin 
+//                         WHERE cp_admin.conversation_id = c.id AND cp_admin.user_id = ?
+//                     ) THEN (
+//                         SELECT GROUP_CONCAT(u.username ORDER BY u.username SEPARATOR ', ') 
+//                         FROM users u 
+//                         JOIN conversation_participants cp ON u.id = cp.user_id 
+//                         WHERE cp.conversation_id = c.id
+//                     )
+//                     WHEN c.type = 'private' THEN (
+//                         SELECT u.username 
+//                         FROM users u 
+//                         JOIN conversation_participants cp ON u.id = cp.user_id 
+//                         WHERE cp.conversation_id = c.id AND u.id != ?
+//                         LIMIT 1
+//                     )
+//                     WHEN c.type = 'group' AND c.conversation_name IS NULL THEN (
+//                         SELECT GROUP_CONCAT(u.username ORDER BY u.username SEPARATOR ', ') 
+//                         FROM users u 
+//                         JOIN conversation_participants cp ON u.id = cp.user_id 
+//                         WHERE cp.conversation_id = c.id
+//                     )
+//                     ELSE c.conversation_name
+//                 END AS conversation_name,
+//                 JSON_ARRAYAGG(
+//                     JSON_OBJECT(
+//                         'id', u.id,
+//                         'username', u.username,
+//                         'email', u.email
+//                     )
+//                 ) AS participants,
+//                 (
+//                     SELECT m.message 
+//                     FROM messages m 
+//                     WHERE m.conversation_id = c.id 
+//                     ORDER BY m.created_at DESC 
+//                     LIMIT 1
+//                 ) AS last_message,
+//                 (
+//                     SELECT m.created_at 
+//                     FROM messages m 
+//                     WHERE m.conversation_id = c.id 
+//                     ORDER BY m.created_at DESC 
+//                     LIMIT 1
+//                 ) AS last_message_time
+//             FROM conversations c
+//             JOIN conversation_participants cp ON c.id = cp.conversation_id
+//             JOIN users u ON cp.user_id = u.id
+//             ${userRole !== '1' ? "WHERE c.id IN (SELECT conversation_id FROM conversation_participants WHERE user_id = ?)" : ""}
+//             GROUP BY c.id, c.type, c.conversation_name, c.created_at
+//             ORDER BY c.created_at DESC
+//         `;
+
+//         const queryParams = userRole === '1'
+//             ? [userRole, currentUserId, currentUserId]  // For admin
+//             : [userRole, currentUserId, currentUserId, currentUserId]; // For normal users
+
+//         const [conversations] = await connection.execute(query, queryParams);
+
+//         // Format last message time with time offset
+//         const formattedConversations = conversations.map(conversation => {
+//             if (conversation.last_message_time) {
+//                 const serverTime = moment.utc(conversation.last_message_time); // Convert to UTC
+//                 const localTime = serverTime.utcOffset(userTimezoneOffset); // Adjust based on user's timezone
+//                 conversation.last_message_time = localTime.fromNow(); // Convert to "2 min ago" format
+//             } else {
+//                 conversation.last_message_time = null;
+//             }
+//             return conversation;
+//         });
+
+//         res.status(200).json(formattedConversations);
+//     } catch (err) {
+//         res.status(500).json({ error: "Internal server error", details: err.message });
+//     }
+// };
+
 export const getConversations = async (req, res) => {
     try {
         if (!req.user) {
@@ -100,9 +206,8 @@ export const getConversations = async (req, res) => {
         }
 
         const currentUserId = req.user.userId;
-        const userTimezoneOffset = req.headers["x-timezone-offset"] || 0; // Get timezone offset from request
+        const userTimezoneOffset = req.headers["x-timezone-offset"] || 0;
 
-        // Fetch the user's role from the database
         const [userRoleResult] = await connection.execute(
             "SELECT role FROM users WHERE id = ?",
             [currentUserId]
@@ -119,6 +224,7 @@ export const getConversations = async (req, res) => {
                 c.id AS conversation_id, 
                 c.type, 
                 c.created_at,
+                u.profile_picture_id,
                 CASE 
                     WHEN c.type = 'private' AND ? = 1 AND NOT EXISTS (
                         SELECT 1 
@@ -170,33 +276,46 @@ export const getConversations = async (req, res) => {
             JOIN conversation_participants cp ON c.id = cp.conversation_id
             JOIN users u ON cp.user_id = u.id
             ${userRole !== '1' ? "WHERE c.id IN (SELECT conversation_id FROM conversation_participants WHERE user_id = ?)" : ""}
-            GROUP BY c.id, c.type, c.conversation_name, c.created_at
+            GROUP BY c.id, c.type, c.conversation_name, c.created_at, u.profile_picture_id
             ORDER BY c.created_at DESC
         `;
 
         const queryParams = userRole === '1'
-            ? [userRole, currentUserId, currentUserId]  // For admin
-            : [userRole, currentUserId, currentUserId, currentUserId]; // For normal users
+            ? [userRole, currentUserId, currentUserId]
+            : [userRole, currentUserId, currentUserId, currentUserId];
 
         const [conversations] = await connection.execute(query, queryParams);
 
-        // Format last message time with time offset
-        const formattedConversations = conversations.map(conversation => {
+        // Format and enrich each conversation
+        const formattedConversations = await Promise.all(conversations.map(async (conversation) => {
             if (conversation.last_message_time) {
-                const serverTime = moment.utc(conversation.last_message_time); // Convert to UTC
-                const localTime = serverTime.utcOffset(userTimezoneOffset); // Adjust based on user's timezone
-                conversation.last_message_time = localTime.fromNow(); // Convert to "2 min ago" format
+                const serverTime = moment.utc(conversation.last_message_time);
+                const localTime = serverTime.utcOffset(userTimezoneOffset);
+                conversation.last_message_time = localTime.fromNow();
             } else {
                 conversation.last_message_time = null;
             }
+
+            // Add profile picture URL
+            if (conversation.profile_picture_id) {
+                try {
+                    conversation.profile_picture_url = await getAttachmentUrlById(conversation.profile_picture_id);
+                } catch (e) {
+                    conversation.profile_picture_url = null; // fallback if file not found
+                }
+            } else {
+                conversation.profile_picture_url = null;
+            }
+
             return conversation;
-        });
+        }));
 
         res.status(200).json(formattedConversations);
     } catch (err) {
         res.status(500).json({ error: "Internal server error", details: err.message });
     }
 };
+
 
 
 
