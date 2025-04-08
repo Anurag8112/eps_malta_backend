@@ -19,12 +19,13 @@ import emailTemplateRoute from "./Router/LicenseTrackerRouter/emailTemplateRoute
 import notificationLogRoute from "./Router/LicenseTrackerRouter/notificationLogRoute.js";
 import companiesRoute from "./Router/CompaniesRouter/companiesRoute.js";
 import settingRoute from "./Router/SettingRouter/settingRoute.js";
-import pushNotificationRoute from "./Router/pushNotificationRoute.js"
-import feedbackRoute from "./Router/feedbackRoute.js"
-import chatRoute from "./Router/chatRoute.js"
-import newsfeedRoute from "./Router/newsfeedRoute.js"
-import announcementRoute from "./Router/announcementRoute.js"
-import uploadRoute from "./Router/uploadRoute.js"
+import pushNotificationRoute from "./Router/pushNotificationRoute.js";
+import feedbackRoute from "./Router/feedbackRoute.js";
+import chatRoute from "./Router/chatRoute.js";
+import newsfeedRoute from "./Router/newsfeedRoute.js";
+import announcementRoute from "./Router/announcementRoute.js";
+import uploadRoute from "./Router/uploadRoute.js";
+import userSettingsRoute from "./Router/userSettingsRoute.js";
 import oas from "express-oas-generator";
 import cors from "cors";
 import { authenticateJWT } from "./Middleware/authenticateJWT.js";
@@ -77,6 +78,7 @@ app.use("/chat", authenticateJWT, chatRoute);
 app.use("/newsfeed", authenticateJWT, newsfeedRoute);
 app.use("/announcement", authenticateJWT, announcementRoute);
 app.use("/upload", authenticateJWT, uploadRoute);
+app.use("/user-settings", authenticateJWT, userSettingsRoute);
 app.use("/attachment", express.static(path.resolve("uploads/attachments")));
 
 // License Tracker

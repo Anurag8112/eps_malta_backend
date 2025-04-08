@@ -2933,7 +2933,7 @@ export const notificationSend = async (req, res) => {
 
     for (const { employeeId, timesheet_id } of pushNotificationResult) {
       if (timesheet_id && employeeId) {
-        const tokenQuery = "SELECT id, fcm_token FROM push_notification WHERE user_id = ?";
+        const tokenQuery = "SELECT id, fcm_token FROM push_notification WHERE user_id = ? and dashboard_notification = 1";
         const [fcmTokens] = await connection.execute(tokenQuery, [employeeId]);
         const notificationData = NOTIFICATION_MESSAGE[ENUM_NOTIFICATION_TYPE.SHIFT_ADDED];
 

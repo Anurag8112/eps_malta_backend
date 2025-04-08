@@ -1,4 +1,3 @@
-import { query } from "express";
 import connection from "../index.js";
 import moment from "moment-timezone";
 import { sendPushNotification } from "../Service/notificationService.js";
@@ -264,7 +263,7 @@ export const createMessages = async (req, res) => {
         if (participants.length > 0) {
             const userIds = participants.map(p => p.user_id);
 
-            const fcmQuery = `SELECT fcm_token FROM push_notification WHERE user_id IN (${userIds.map(() => '?').join(',')})`;
+            const fcmQuery = `SELECT fcm_token FROM push_notification WHERE user_id IN (${userIds.map(() => '?').join(',')}) and message_notification = 1`;
             const [fcmTokens] = await connection.execute(fcmQuery, userIds);
 
             fcmTokens.forEach(({ fcm_token }) => {
