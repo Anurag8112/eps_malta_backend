@@ -210,13 +210,17 @@ export const getConversations = async (req, res) => {
     }
 };
 
-
 export const getOneToOneConversations = async (req, res) => {
     const { receiverId } = req.query;
     const loggedInUserId = req.user.userId;
 
     const query = `
-        SELECT cnv.id AS conversation_id, cnv.type, cnv.created_at, u.username AS conversation_name 
+        SELECT 
+            cnv.id AS conversation_id,
+            cnv.type,
+            cnv.created_at,
+            u.username AS conversation_name,
+            u.profile_picture_id
         FROM conversations AS cnv
         JOIN conversation_participants AS cp1 ON cnv.id = cp1.conversation_id
         JOIN conversation_participants AS cp2 ON cnv.id = cp2.conversation_id
@@ -229,12 +233,33 @@ export const getOneToOneConversations = async (req, res) => {
 
     try {
         const [rows] = await connection.execute(query, [loggedInUserId, receiverId, loggedInUserId]);
-        const conversation = rows.length ? rows[0] : null;
+
+        if (rows.length === 0) {
+            return res.json(null);
+        }
+
+        const conversation = rows[0];
+
+        // Get profile picture URL
+        if (conversation.profile_picture_id) {
+            try {
+                conversation.profile_picture_url = await getAttachmentUrlById(conversation.profile_picture_id);
+            } catch (err) {
+                conversation.profile_picture_url = null; // Fallback if image not found
+            }
+        } else {
+            conversation.profile_picture_url = null;
+        }
+
+        // Optional: remove the raw ID from response
+        delete conversation.profile_picture_id;
+
         res.json(conversation);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
+
 
 export const createMessages = async (req, res) => {
     try {
