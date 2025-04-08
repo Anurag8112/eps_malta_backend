@@ -60,11 +60,13 @@ export const rosterView = async (req, res) => {
 
     // Initialize an array to hold the query conditions
     const conditions = [];
+    const queryParams = [];
 
-    // Add conditions based on the presence of query parameters
     if (date) {
       conditions.push(`t.date = ?`);
+      queryParams.push(date);
     }
+
     if (employeeId) {
       const employeeIds = Array.isArray(employeeId)
         ? employeeId
@@ -74,59 +76,47 @@ export const rosterView = async (req, res) => {
           .map(() => "?")
           .join(",")})`
       );
-    }
-    if (locationId) {
-      conditions.push(`t.locationId = ?`);
-    }
-    if (clientId) {
-      conditions.push(`t.clientId = ?`);
-    }
-    if (eventId) {
-      conditions.push(`t.eventId = ?`);
-    }
-    if (taskId) {
-      conditions.push(`t.taskId = ?`);
+      queryParams.push(...employeeIds);
     }
 
-    // If there are any conditions, append them to the query
+    if (locationId) {
+      const locationIds = Array.isArray(locationId)
+        ? locationId
+        : locationId.split(",").map((id) => Number(id));
+      conditions.push(
+        `t.locationId ${locationIds.length > 1 ? "IN" : "="} (${locationIds
+          .map(() => "?")
+          .join(",")})`
+      );
+      queryParams.push(...locationIds);
+    }
+
+    if (clientId) {
+      conditions.push(`t.clientId = ?`);
+      queryParams.push(clientId);
+    }
+
+    if (eventId) {
+      conditions.push(`t.eventId = ?`);
+      queryParams.push(eventId);
+    }
+
+    if (taskId) {
+      conditions.push(`t.taskId = ?`);
+      queryParams.push(taskId);
+    }
+
     if (conditions.length > 0) {
       const conditionString = conditions.join(" AND ");
       query += ` WHERE ${conditionString}`;
       countQuery += ` WHERE ${conditionString}`;
     }
 
-    // Add ORDER BY clause to sort by start time
+    // Add ORDER BY clause and pagination
     query += ` ORDER BY t.startTime LIMIT ? OFFSET ?`;
-
-    // Array to hold the values for the query parameters
-    const queryParams = [];
-
-    // Add the values for the query parameters in the same order as the conditions
-    if (date) {
-      queryParams.push(date);
-    }
-    if (employeeId) {
-      const employeeIds = Array.isArray(employeeId)
-        ? employeeId
-        : employeeId.split(",").map((id) => Number(id));
-      queryParams.push(...employeeIds);
-    }
-    if (locationId) {
-      queryParams.push(locationId);
-    }
-    if (clientId) {
-      queryParams.push(clientId);
-    }
-    if (eventId) {
-      queryParams.push(eventId);
-    }
-    if (taskId) {
-      queryParams.push(taskId);
-    }
-
     queryParams.push(Number(perPage), Number(offset));
 
-    // Execute the count query to get the total number of records
+    // Execute count query
     const [countResult] = await connection.query(
       countQuery,
       queryParams.slice(0, -2)
@@ -134,15 +124,13 @@ export const rosterView = async (req, res) => {
     const totalRecords = countResult[0].totalRecords;
     const totalPages = Math.ceil(totalRecords / perPage);
 
-    // Execute the query with the parameters
+    // Execute data query
     const [results] = await connection.query(query, queryParams);
 
-    // Group results based on the specified 'group' parameter
+    // Group if needed
     let groupedResults = results;
-
     if (group) {
       const groupedResultsMap = new Map();
-
       results.forEach((result) => {
         const key = result[group];
         if (!groupedResultsMap.has(key)) {
@@ -150,7 +138,6 @@ export const rosterView = async (req, res) => {
         }
         groupedResultsMap.get(key).result.push(result);
       });
-
       groupedResults = [...groupedResultsMap.values()];
     }
 
@@ -162,8 +149,8 @@ export const rosterView = async (req, res) => {
       totalRecords,
     });
   } catch (error) {
-    // Handle any errors that occur during the process
     console.error("Error retrieving roster:", error.stack);
     res.status(500).json({ error: "Failed to retrieve roster" });
   }
 };
+
