@@ -260,10 +260,9 @@ export const getOneToOneConversations = async (req, res) => {
     }
 };
 
-
 export const createMessages = async (req, res) => {
     try {
-        const { conversation_id, sender_id, message , attachment_id} = req.body;
+        const { conversation_id, sender_id, message, attachment_id } = req.body;
 
         if (!conversation_id || !sender_id || !message) {
             return res.status(400).json({ error: "conversation_id, sender_id, and message are required." });
@@ -273,41 +272,62 @@ export const createMessages = async (req, res) => {
 
         // Insert message into database
         const insertQuery = `
-          INSERT INTO messages (conversation_id, sender_id, message,attachment_id, is_read, created_at) 
-          VALUES (?, ?, ?,?, false, NOW())`;
-        const values = [conversation_id, sender_id, message,attachment_id];
+            INSERT INTO messages (conversation_id, sender_id, message, attachment_id, is_read, created_at) 
+            VALUES (?, ?, ?, ?, false, NOW())`;
+        const values = [conversation_id, sender_id, message, attachment_id];
 
         const [result] = await connection.execute(insertQuery, values);
 
         // Fetch participants and their FCM tokens concurrently
         const participantsQuery = `
-          SELECT DISTINCT user_id FROM conversation_participants 
-          WHERE conversation_id = ? AND user_id != ?`;
+            SELECT DISTINCT user_id FROM conversation_participants 
+            WHERE conversation_id = ? AND user_id != ?`;
         const [participants] = await connection.execute(participantsQuery, [conversation_id, sender_id]);
 
         if (participants.length > 0) {
             const userIds = participants.map(p => p.user_id);
 
-            const fcmQuery = `SELECT fcm_token FROM push_notification WHERE user_id IN (${userIds.map(() => '?').join(',')}) and message_notification = 1`;
+            const fcmQuery = `
+                SELECT fcm_token FROM push_notification 
+                WHERE user_id IN (${userIds.map(() => '?').join(',')}) 
+                AND message_notification = 1`;
             const [fcmTokens] = await connection.execute(fcmQuery, userIds);
 
             fcmTokens.forEach(({ fcm_token }) => {
-                sendPushNotification(fcm_token, NOTIFICATION_MESSAGE.NEW_MESSAGE_RECIEVED.subject, NOTIFICATION_MESSAGE.NEW_MESSAGE_RECIEVED.body);
+                sendPushNotification(
+                    fcm_token,
+                    NOTIFICATION_MESSAGE.NEW_MESSAGE_RECIEVED.subject,
+                    NOTIFICATION_MESSAGE.NEW_MESSAGE_RECIEVED.body
+                );
             });
         }
 
         await connection.commit();
 
-        const fetchQuery= "Select * from messages where id = ?";
-
+        // Fetch inserted message
+        const fetchQuery = "SELECT * FROM messages WHERE id = ?";
         const [fetchResult] = await connection.query(fetchQuery, [result.insertId]);
 
-        res.status(201).json(fetchResult[0]);
+        const messageData = fetchResult[0];
+
+        // Add file_url if attachment exists
+        if (messageData.attachment_id) {
+            try {
+                messageData.file_url = await getAttachmentUrlById(messageData.attachment_id);
+            } catch (err) {
+                console.error("Error fetching file URL:", err.message);
+                messageData.file_url = null; // Optional: Set null or skip the key
+            }
+        }
+
+        res.status(201).json(messageData);
     } catch (err) {
         await connection.rollback();
+        console.error("Create message error:", err.message);
         res.status(500).json({ error: "Internal server error", details: err.message });
     }
 };
+
 
 export const getMessages = async (req, res) => {
     try {

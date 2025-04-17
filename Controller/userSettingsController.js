@@ -28,13 +28,13 @@ export const updateUserSettings = async (req, res) => {
             return res.status(400).json({ message: "Invalid value for newsfeed_notification." });
         }
 
-        const query = `
+        const updateQuery = `
             UPDATE push_notification 
             SET message_notification = ?, dashboard_notification = ?, newsfeed_notification = ? 
             WHERE fcm_token = ? AND user_id = ?
         `;
 
-        const [Result] = await connection.execute(query, [
+        const [updateResult] = await connection.execute(updateQuery, [
             message_notification,
             dashboard_notification,
             newsfeed_notification,
@@ -42,17 +42,29 @@ export const updateUserSettings = async (req, res) => {
             userId
         ]);
 
-        if (Result.affectedRows === 0) {
+        if (updateResult.affectedRows === 0) {
             return res.status(404).json({ message: "No matching record found." });
         }
 
-        return res.status(200).json({ message: "Notification settings updated successfully." });
+        // Reuse get logic to return updated settings
+        const fetchQuery = `
+            SELECT * FROM push_notification 
+            WHERE fcm_token = ? AND user_id = ?
+        `;
+        const [fetchResult] = await connection.execute(fetchQuery, [token, userId]);
+
+        if (fetchResult.length === 0) {
+            return res.status(404).json({ message: "Failed to fetch updated settings." });
+        }
+
+        return res.status(200).json(fetchResult[0]);
 
     } catch (error) {
         console.error("Error updating user settings:", error);
         return res.status(500).json({ message: "Internal server error." });
     }
 };
+
 
 export const getUserSettings = async (req, res) => {
     try {
