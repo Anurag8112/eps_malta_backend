@@ -313,10 +313,10 @@ export const createMessages = async (req, res) => {
         // Add file_url if attachment exists
         if (messageData.attachment_id) {
             try {
-                messageData.file_url = await getAttachmentUrlById(messageData.attachment_id);
+                messageData.fileUrl = await getAttachmentUrlById(messageData.attachment_id);
             } catch (err) {
                 console.error("Error fetching file URL:", err.message);
-                messageData.file_url = null; // Optional: Set null or skip the key
+                messageData.fileUrl = null; // Optional: Set null or skip the key
             }
         }
 
